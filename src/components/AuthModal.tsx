@@ -57,6 +57,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleGoogleLogin = async () => {
+    console.log('🔴 DEBUG: handleGoogleLogin called - button was clicked!');
     setError('');
     setLoading(true);
     try {
@@ -67,6 +68,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       onClose();
     } catch (error: any) {
       console.error('🔴 Error in handleGoogleLogin:', error);
+      console.error('🔴 Error stack:', error.stack);
+      console.error('🔴 Error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code
+      });
       setError(error.message || 'Failed to initiate Google login');
       setLoading(false);
     }

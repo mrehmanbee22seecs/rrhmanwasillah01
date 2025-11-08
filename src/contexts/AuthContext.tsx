@@ -327,15 +327,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // CRITICAL: Wait for persistence to be set before redirecting
       // This ensures auth state will be preserved after redirect
       console.log('⏳ Waiting for auth persistence to be set...');
-      await persistenceReady;
-      console.log('✅ Persistence ready, initiating redirect...');
+      
+      try {
+        await persistenceReady;
+        console.log('✅ Persistence ready, initiating redirect...');
+      } catch (persistenceError) {
+        console.error('❌ CRITICAL: Persistence failed to set:', persistenceError);
+        console.error('❌ Attempting to continue anyway...');
+        // Continue anyway - maybe it will work
+      }
       
       // Use redirect instead of popup to avoid COOP issues
+      console.log('🔵 Calling signInWithRedirect...');
       await signInWithRedirect(auth, googleProvider);
       console.log('🔵 Redirect initiated (this may not log if redirect is immediate)');
       // User will be handled by getRedirectResult in useEffect
     } catch (error) {
       console.error('❌ Error during Google login redirect:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error details:', {
+        message: (error as Error).message,
+        name: (error as Error).name,
+        code: (error as any).code,
+        stack: (error as Error).stack
+      });
       throw error;
     }
   };
