@@ -585,6 +585,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Handle redirect result and set up auth listener
     const initAuth = async () => {
       try {
+        // CRITICAL: Wait for persistence to be set before checking redirect result
+        // This ensures auth state is preserved across the OAuth redirect
+        console.log('⏳ Waiting for Firebase Auth persistence to be ready...');
+        await persistenceReady;
+        console.log('✅ Persistence ready, checking for OAuth redirect result...');
+        
         // Check for redirect result first (from Google/Facebook login)
         console.log('Checking for redirect result...');
         const result = await getRedirectResult(auth);
