@@ -17,7 +17,7 @@ import { auth, googleProvider, facebookProvider, db } from '../config/firebase';
 import { initializeUserProfile, logActivity as logUserActivity } from '../utils/firebaseInit';
 import { sendWelcomeEmail } from '../services/mailerSendEmailService';
 import { UserProfile, UserRole, OnboardingData, ActivityLog } from '../types/user';
-
+import { diagnoseFirebaseConnection } from '../utils/firebaseDebug';
 // Legacy UserData interface for backward compatibility
 interface UserData extends UserProfile {
   // Keep existing fields for backward compatibility
@@ -689,6 +689,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.error('🚨 User email:', user.email);
               console.error('🚨 User UID:', user.uid);
               console.error('🚨 This will cause the user to see welcome screen');
+              
+              // Run comprehensive diagnostics to help debug
+              console.log('🔍 Running Firebase diagnostics...');
+              diagnoseFirebaseConnection().then(result => {
+                console.log('📊 Diagnostic results:', result);
+                if (result.summary.issues.length > 0) {
+                  console.error('🚨 Issues found:', result.summary.issues);
+                }
+                if (result.summary.recommendations.length > 0) {
+                  console.log('💡 Recommendations:', result.summary.recommendations);
+                }
+              }).catch(diagError => {
+                console.error('Failed to run diagnostics:', diagError);
+              });
             }
           }
         }
