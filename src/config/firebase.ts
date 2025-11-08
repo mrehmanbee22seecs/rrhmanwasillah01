@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFunctions } from 'firebase/functions';
-import { getAuth, GoogleAuthProvider, FacebookAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, FacebookAuthProvider, setPersistence, browserLocalPersistence, inMemoryPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -19,13 +19,38 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
-// Set persistence to local (survives browser close/reopen, prevents race conditions)
-// This ensures auth state is stable before guards run
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error('Failed to set auth persistence:', error);
-});
+// CRITICAL: Create a promise to track when persistence is set
+// This MUST complete before any signInWithRedirect calls
+let persistenceReady: Promise<void>;
 
-// Configure Google Auth Provider with popup settings
+try {
+  console.log('🔧 Setting Firebase Auth persistence to browserLocalPersistence...');
+  persistenceReady = setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      console.log('✅ Firebase Auth persistence set successfully');
+    })
+    .catch((error) => {
+      console.error('❌ CRITICAL: Failed to set auth persistence:', error);
+      console.error('❌ This will cause OAuth redirects to fail!');
+      console.error('❌ Attempting fallback to inMemoryPersistence...');
+      return setPersistence(auth, inMemoryPersistence)
+        .then(() => {
+          console.log('⚠️  Fallback: Using inMemoryPersistence (session will not persist across page reloads)');
+        })
+        .catch((fallbackError) => {
+          console.error('❌ FATAL: Could not set any persistence mode:', fallbackError);
+          throw fallbackError;
+        });
+    });
+} catch (error) {
+  console.error('❌ FATAL: Error initializing persistence:', error);
+  persistenceReady = Promise.reject(error);
+}
+
+// Export the persistence promise so login functions can wait for it
+export { persistenceReady };
+
+// Configure Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account'

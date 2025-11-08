@@ -13,7 +13,7 @@ import {
   updatePassword as firebaseUpdatePassword
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, googleProvider, facebookProvider, db } from '../config/firebase';
+import { auth, googleProvider, facebookProvider, db, persistenceReady } from '../config/firebase';
 import { initializeUserProfile, logActivity as logUserActivity } from '../utils/firebaseInit';
 import { sendWelcomeEmail } from '../services/mailerSendEmailService';
 import { UserProfile, UserRole, OnboardingData, ActivityLog } from '../types/user';
@@ -323,6 +323,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loginWithGoogle = async () => {
     try {
       console.log('🔵 Starting Google login redirect...');
+      
+      // CRITICAL: Wait for persistence to be set before redirecting
+      // This ensures auth state will be preserved after redirect
+      console.log('⏳ Waiting for auth persistence to be set...');
+      await persistenceReady;
+      console.log('✅ Persistence ready, initiating redirect...');
+      
       // Use redirect instead of popup to avoid COOP issues
       await signInWithRedirect(auth, googleProvider);
       console.log('🔵 Redirect initiated (this may not log if redirect is immediate)');
@@ -336,6 +343,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loginWithFacebook = async () => {
     try {
       console.log('🔵 Starting Facebook login redirect...');
+      
+      // CRITICAL: Wait for persistence to be set before redirecting
+      console.log('⏳ Waiting for auth persistence to be set...');
+      await persistenceReady;
+      console.log('✅ Persistence ready, initiating redirect...');
+      
       // Use redirect instead of popup to avoid COOP issues
       await signInWithRedirect(auth, facebookProvider);
       console.log('🔵 Redirect initiated (this may not log if redirect is immediate)');
