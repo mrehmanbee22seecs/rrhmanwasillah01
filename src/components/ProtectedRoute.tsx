@@ -31,6 +31,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
     // Wait for userData to fully load before making decisions
     if (!userData || loading) {
+      console.log('⏳ Waiting for userData to load...', { hasUserData: !!userData, loading });
       return;
     }
 
@@ -39,14 +40,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     
     if (oauthRedirectCompleted === 'true') {
       console.log('🔵 OAuth redirect detected - handling post-login flow');
+      console.log('🔵 User data:', { 
+        email: userData.email, 
+        onboardingCompleted: userData.onboardingCompleted,
+        preferencesOnboardingCompleted: userData.preferences?.onboardingCompleted 
+      });
       
       // Clear the flag immediately to prevent repeated navigation
       sessionStorage.removeItem('oauthRedirectCompleted');
       
       // If user is on home page, redirect to dashboard
       if (location.pathname === '/') {
-        console.log('🔵 Redirecting OAuth user to dashboard');
+        console.log('🔵 Redirecting OAuth user from home to dashboard');
         navigate('/dashboard', { replace: true });
+      } else {
+        console.log('🔵 OAuth user is on', location.pathname, '- staying on this page');
       }
       
       // OAuth users skip onboarding wizard by default (they already have onboardingCompleted: true)
@@ -56,23 +64,37 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       return;
     }
 
+    // Unified onboarding completion check:
+    // User is considered "onboarded" if EITHER flag is true
+    const isOnboarded = userData.onboardingCompleted || userData.preferences?.onboardingCompleted;
+    
+    console.log('📋 Onboarding check:', {
+      email: userData.email,
+      path: location.pathname,
+      onboardingCompleted: userData.onboardingCompleted,
+      preferencesOnboardingCompleted: userData.preferences?.onboardingCompleted,
+      isOnboarded,
+      isGuest: userData.isGuest
+    });
+
     // Check if user needs to complete onboarding wizard
-    // Show wizard for users who haven't completed onboarding
-    if (!userData.isGuest && !userData.onboardingCompleted) {
+    // Show wizard for non-guest users who haven't completed onboarding
+    if (!userData.isGuest && !isOnboarded) {
       // Don't show on excluded paths
       if (!ONBOARDING_EXCLUDED_PATHS.includes(location.pathname)) {
+        console.log('📝 Showing onboarding wizard for new user');
         setShowOnboardingWizard(true);
         setShowOnboarding(false); // Don't show old onboarding modal
+      } else {
+        console.log('📝 On excluded path, skipping onboarding wizard');
+        setShowOnboardingWizard(false);
+        setShowOnboarding(false);
       }
     } else {
+      // User has completed onboarding (or is guest) - don't show any onboarding UI
+      console.log('✅ User is onboarded or guest - no onboarding UI needed');
       setShowOnboardingWizard(false);
-      
-      // Show old onboarding modal only if preferences onboarding is not completed
-      // This is for backward compatibility
-      const shouldShow = !userData.isGuest && 
-                         !userData.preferences?.onboardingCompleted &&
-                         !ONBOARDING_EXCLUDED_PATHS.includes(location.pathname);
-      setShowOnboarding(shouldShow);
+      setShowOnboarding(false);
     }
   }, [currentUser, userData, loading, location.pathname, navigate]);
 

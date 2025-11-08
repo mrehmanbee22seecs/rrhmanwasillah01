@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFunctions } from 'firebase/functions';
-import { getAuth, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, FacebookAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -18,6 +18,12 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
+
+// Set persistence to local (survives browser close/reopen, prevents race conditions)
+// This ensures auth state is stable before guards run
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Failed to set auth persistence:', error);
+});
 
 // Configure Google Auth Provider with popup settings
 export const googleProvider = new GoogleAuthProvider();

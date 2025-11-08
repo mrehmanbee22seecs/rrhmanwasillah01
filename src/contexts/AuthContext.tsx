@@ -79,12 +79,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const ADMIN_EMAIL = 'admin@wasilah.org';
   const ADMIN_PASSWORD = 'WasilahAdmin2024!';
 
-  const createUserDocument = async (user: User, additionalData: any = {}) => {
+  const createUserDocument = async (user: User, additionalData: any = {}, retryCount = 0): Promise<UserData> => {
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY = 1000; // 1 second
+
     try {
-      console.log('📝 createUserDocument called for user:', user.email);
+      console.log('📝 createUserDocument called for user:', user.email, retryCount > 0 ? `(retry ${retryCount}/${MAX_RETRIES})` : '');
       const userRef = doc(db, 'users', user.uid);
       console.log('Checking if user document exists...');
-      const userSnap = await getDoc(userRef);
+      
+      // Add retry logic for getDoc in case of transient network issues
+      let userSnap;
+      try {
+        userSnap = await getDoc(userRef);
+      } catch (error) {
+        console.error('❌ Error reading user document:', error);
+        if (retryCount < MAX_RETRIES) {
+          console.log(`Retrying getDoc in ${RETRY_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          return createUserDocument(user, additionalData, retryCount + 1);
+        }
+        throw error;
+      }
 
       if (!userSnap.exists()) {
         // New user - create document
@@ -94,6 +110,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Determine role: use additionalData.role, or default to 'volunteer', or 'admin' if admin user
         const userRole: UserRole = additionalData.role || (isAdminUser ? 'admin' : 'volunteer');
+        
+        // For OAuth users, set both onboarding flags to true to ensure they skip onboarding
+        const isOAuthUser = additionalData.preferences?.onboardingCompleted === true;
         
         const userData: UserData = {
           uid: user.uid,
@@ -107,8 +126,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
           activityLog: [],
-          onboardingCompleted: false,
-          profileCompletionPercentage: 0,
+          onboardingCompleted: isOAuthUser, // Set true for OAuth users
+          profileCompletionPercentage: isOAuthUser ? 50 : 0, // Give OAuth users partial completion
           ...additionalData,
           // Ensure preferences with defaults, merge if additionalData has preferences
           preferences: {
@@ -119,18 +138,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         };
 
-        console.log('Writing new user document to Firestore...');
-        await setDoc(userRef, userData);
-        console.log('✅ User document created successfully');
+        console.log('Writing new user document to Firestore...', isOAuthUser ? '(OAuth user)' : '');
+        try {
+          await setDoc(userRef, userData);
+          console.log('✅ User document created successfully');
+        } catch (error) {
+          console.error('❌ Error writing user document:', error);
+          if (retryCount < MAX_RETRIES) {
+            console.log(`Retrying setDoc in ${RETRY_DELAY}ms...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            return createUserDocument(user, additionalData, retryCount + 1);
+          }
+          throw error;
+        }
         
-        // Fetch the document again to get server-resolved timestamps
-        const newUserSnap = await getDoc(userRef);
+        // Fetch the document again to get server-resolved timestamps with retry
+        let newUserSnap;
+        try {
+          newUserSnap = await getDoc(userRef);
+          if (!newUserSnap.exists()) {
+            throw new Error('User document was not created successfully');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching created user document:', error);
+          if (retryCount < MAX_RETRIES) {
+            console.log(`Retrying fetch in ${RETRY_DELAY}ms...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            return createUserDocument(user, additionalData, retryCount + 1);
+          }
+          throw error;
+        }
+        
         const finalData = newUserSnap.data() as UserData;
-        console.log('✅ User document fetched:', finalData.email);
+        console.log('✅ User document fetched:', finalData.email, 'onboardingCompleted:', finalData.onboardingCompleted);
         return finalData;
       } else {
         // Existing user - update last login and merge any additional data (e.g., OAuth preferences)
         console.log('Existing user detected, updating last login...');
+        const currentData = userSnap.data() as UserData;
+        
         const updateData: any = {
           lastLogin: serverTimestamp()
         };
@@ -138,10 +184,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Merge additionalData if provided (e.g., OAuth users skipping onboarding)
         if (additionalData && Object.keys(additionalData).length > 0) {
           console.log('Merging additional data for existing user:', additionalData);
+          
           // Merge preferences if they exist in additionalData
           if (additionalData.preferences) {
-            // Get current preferences first
-            const currentData = userSnap.data() as UserData;
             const currentPreferences = currentData.preferences || {};
             
             // Merge preferences (OAuth preferences take precedence)
@@ -149,7 +194,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               ...currentPreferences,
               ...additionalData.preferences
             };
+            
+            // If OAuth user is setting onboardingCompleted in preferences, also set top-level flag
+            if (additionalData.preferences.onboardingCompleted === true) {
+              updateData['onboardingCompleted'] = true;
+              console.log('🔵 Setting onboardingCompleted=true for returning OAuth user');
+            }
           }
+          
           // Merge other fields if needed
           Object.keys(additionalData).forEach(key => {
             if (key !== 'preferences') {
@@ -158,13 +210,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
         }
         
-        await updateDoc(userRef, updateData);
-        console.log('✅ Last login updated with additional data');
+        try {
+          await updateDoc(userRef, updateData);
+          console.log('✅ Last login updated with additional data');
+        } catch (error) {
+          console.error('❌ Error updating user document:', error);
+          if (retryCount < MAX_RETRIES) {
+            console.log(`Retrying updateDoc in ${RETRY_DELAY}ms...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            return createUserDocument(user, additionalData, retryCount + 1);
+          }
+          throw error;
+        }
         
-        // Fetch the updated document
-        const updatedUserSnap = await getDoc(userRef);
+        // Fetch the updated document with retry
+        let updatedUserSnap;
+        try {
+          updatedUserSnap = await getDoc(userRef);
+        } catch (error) {
+          console.error('❌ Error fetching updated user document:', error);
+          if (retryCount < MAX_RETRIES) {
+            console.log(`Retrying fetch in ${RETRY_DELAY}ms...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            return createUserDocument(user, additionalData, retryCount + 1);
+          }
+          throw error;
+        }
+        
         const finalData = updatedUserSnap.data() as UserData;
-        console.log('✅ User document fetched:', finalData.email);
+        console.log('✅ User document fetched:', finalData.email, 'onboardingCompleted:', finalData.onboardingCompleted);
         return finalData;
       }
     } catch (error) {
@@ -172,8 +246,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Error details:', {
         message: (error as Error).message,
         name: (error as Error).name,
-        stack: (error as Error).stack
+        stack: (error as Error).stack,
+        code: (error as any).code // Firebase error codes
       });
+      
+      // On final failure, clear OAuth flag to prevent stuck state
+      if (retryCount >= MAX_RETRIES) {
+        console.error('❌ Max retries reached, clearing OAuth redirect flag');
+        sessionStorage.removeItem('oauthRedirectCompleted');
+      }
+      
       throw error;
     }
   };
