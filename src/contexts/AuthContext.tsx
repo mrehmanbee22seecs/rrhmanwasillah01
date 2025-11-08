@@ -4,17 +4,21 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithRedirect,
+  signInWithPopup,
   getRedirectResult,
   signOut,
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
   sendEmailVerification,
-  updatePassword as firebaseUpdatePassword
+  updatePassword as firebaseUpdatePassword,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, facebookProvider, db } from '../config/firebase';
-import { initializeUserProfile, logActivity as logUserActivity } from '../utils/firebaseInit';
+// Note: initializeUserProfile and logActivity are kept for potential future use
+// import { initializeUserProfile, logActivity as logUserActivity } from '../utils/firebaseInit';
 import { sendWelcomeEmail } from '../services/mailerSendEmailService';
 import { UserProfile, UserRole, OnboardingData, ActivityLog } from '../types/user';
 
@@ -67,7 +71,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProviderProps) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isGuest, setIsGuest] = useState(false);
@@ -77,7 +81,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Admin credentials
   const ADMIN_EMAIL = 'admin@wasilah.org';
-  const ADMIN_PASSWORD = 'WasilahAdmin2024!';
+  // ADMIN_PASSWORD is kept for reference but not used in code (admin login handled via Firebase)
+  // const ADMIN_PASSWORD = 'WasilahAdmin2024!';
 
   const createUserDocument = async (user: User, additionalData: any = {}) => {
     try {
@@ -95,6 +100,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Determine role: use additionalData.role, or default to 'volunteer', or 'admin' if admin user
         const userRole: UserRole = additionalData.role || (isAdminUser ? 'admin' : 'volunteer');
         
+        // Determine onboarding status from additionalData
+        const onboardingCompleted = additionalData.preferences?.onboardingCompleted || 
+                                     additionalData.onboardingCompleted || 
+                                     false;
+        
         const userData: UserData = {
           uid: user.uid,
           displayName,
@@ -107,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
           activityLog: [],
-          onboardingCompleted: false,
+          onboardingCompleted: onboardingCompleted,
           profileCompletionPercentage: 0,
           ...additionalData,
           // Ensure preferences with defaults, merge if additionalData has preferences
@@ -115,7 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             theme: 'wasilah-classic',
             language: 'en',
             ...additionalData.preferences,
-            onboardingCompleted: additionalData.preferences?.onboardingCompleted || false
+            onboardingCompleted: onboardingCompleted
           }
         };
 
@@ -221,36 +231,70 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithGoogle = async () => {
     try {
-      console.log('🔵 [OAuth Debug] Starting Google login redirect...');
-      console.log('🔵 [OAuth Debug] Current URL before redirect:', window.location.href);
-      console.log('🔵 [OAuth Debug] Current hostname:', window.location.hostname);
-      console.log('🔵 [OAuth Debug] App name:', auth.app.name);
+      const hostname = window.location.hostname;
+      console.log('🔵 [OAuth] loginWithGoogle: Setting local persistence before sign-in...');
       
-      // Set a flag before redirect to track the attempt
-      sessionStorage.setItem('oauthRedirectInitiated', 'true');
-      sessionStorage.setItem('oauthRedirectTime', Date.now().toString());
+      // CRITICAL: Ensure auth state persists across redirects and page reloads
+      // This prevents ephemeral sessions that disappear on redirect
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+        console.log('✅ [OAuth] Persistence set to browserLocalPersistence');
+      } catch (persistError: any) {
+        console.warn('⚠️ [OAuth] setPersistence failed (non-fatal):', persistError);
+        // Continue anyway - some browsers may not support this
+      }
       
-      // Use redirect instead of popup to avoid COOP issues
-      await signInWithRedirect(auth, googleProvider);
+      // Warn if domain might not be authorized
+      if (!hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+        console.log('🔵 [OAuth] Production domain detected:', hostname);
+        console.warn('⚠️ [OAuth] Ensure this domain is authorized in Firebase Console');
+        console.warn('⚠️ [OAuth] Go to: Firebase Console > Authentication > Settings > Authorized domains');
+      }
       
-      // This line typically won't execute due to redirect, but log if it does
-      console.log('🔵 [OAuth Debug] Redirect initiated (this may not log if redirect is immediate)');
-      
-      // User will be handled by getRedirectResult in useEffect
+      // Strategy: Try popup first (better UX), fallback to redirect if popup is blocked
+      try {
+        console.log('🔵 [OAuth] Attempting signInWithPopup for Google (preferred method)...');
+        await signInWithPopup(auth, googleProvider);
+        console.log('✅ [OAuth] signInWithPopup succeeded - no redirect needed');
+        // Popup succeeded - onAuthStateChanged listener will catch the user
+        // No need to set redirect flags
+        return;
+      } catch (popupErr: any) {
+        console.warn('⚠️ [OAuth] signInWithPopup failed or was blocked - falling back to redirect');
+        console.warn('⚠️ [OAuth] Popup error:', popupErr?.code, popupErr?.message);
+        
+        // Popup failed/blocked - fallback to redirect
+        // CRITICAL: Set flag BEFORE redirect so we know this was an OAuth flow on return
+        sessionStorage.setItem('wasillah_oauth_in_progress', '1');
+        sessionStorage.setItem('wasillah_oauth_provider', 'google.com');
+        sessionStorage.setItem('wasillah_oauth_time', Date.now().toString());
+        
+        console.log('🔵 [OAuth] Initiating signInWithRedirect for Google...');
+        console.log('🔵 [OAuth] Flag set: wasillah_oauth_in_progress = 1');
+        
+        await signInWithRedirect(auth, googleProvider);
+        // Browser will redirect away; nothing further executes here
+      }
     } catch (error: any) {
-      console.error('❌ [OAuth Debug] Error during Google login redirect:', error);
-      console.error('❌ [OAuth Debug] Error code:', error?.code);
-      console.error('❌ [OAuth Debug] Error message:', error?.message);
+      console.error('❌ [OAuth] loginWithGoogle: Unexpected error', error);
+      console.error('❌ [OAuth] Error code:', error?.code);
+      console.error('❌ [OAuth] Error message:', error?.message);
+      console.error('❌ [OAuth] Full error:', error);
       
       // Clear flags on error
-      sessionStorage.removeItem('oauthRedirectInitiated');
-      sessionStorage.removeItem('oauthRedirectTime');
+      sessionStorage.removeItem('wasillah_oauth_in_progress');
+      sessionStorage.removeItem('wasillah_oauth_provider');
+      sessionStorage.removeItem('wasillah_oauth_time');
       
-      // Check for specific errors
+      // Provide helpful error messages
       if (error?.code === 'auth/unauthorized-domain') {
-        const errorMsg = `Unauthorized domain. Please add "${window.location.hostname}" to Firebase Console > Authentication > Settings > Authorized domains`;
-        console.error('❌ [OAuth Debug]', errorMsg);
+        const errorMsg = `❌ UNAUTHORIZED DOMAIN: "${window.location.hostname}" is not authorized in Firebase Console.\n\nPlease:\n1. Go to Firebase Console > Authentication > Settings > Authorized domains\n2. Click "Add domain"\n3. Add: ${window.location.hostname}\n4. Wait 1-2 minutes for changes to propagate\n5. Try again`;
         throw new Error(errorMsg);
+      } else if (error?.code === 'auth/operation-not-allowed') {
+        const errorMsg = `Google sign-in is not enabled in Firebase Console.\n\nPlease:\n1. Go to Firebase Console > Authentication > Sign-in method\n2. Click on "Google"\n3. Enable Google sign-in\n4. Save and try again`;
+        throw new Error(errorMsg);
+      } else if (error?.message) {
+        throw new Error(`OAuth error: ${error.message}`);
       }
       
       throw error;
@@ -259,13 +303,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithFacebook = async () => {
     try {
-      console.log('🔵 Starting Facebook login redirect...');
-      // Use redirect instead of popup to avoid COOP issues
-      await signInWithRedirect(auth, facebookProvider);
-      console.log('🔵 Redirect initiated (this may not log if redirect is immediate)');
-      // User will be handled by getRedirectResult in useEffect
-    } catch (error) {
-      console.error('❌ Error during Facebook login redirect:', error);
+      console.log('🔵 [OAuth] loginWithFacebook: Setting local persistence before sign-in...');
+      
+      // Ensure auth state persists across redirects
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+        console.log('✅ [OAuth] Persistence set to browserLocalPersistence');
+      } catch (persistError: any) {
+        console.warn('⚠️ [OAuth] setPersistence failed (non-fatal):', persistError);
+      }
+      
+      // Try popup first, fallback to redirect
+      try {
+        console.log('🔵 [OAuth] Attempting signInWithPopup for Facebook...');
+        await signInWithPopup(auth, facebookProvider);
+        console.log('✅ [OAuth] signInWithPopup succeeded');
+        return;
+      } catch (popupErr: any) {
+        console.warn('⚠️ [OAuth] signInWithPopup failed - falling back to redirect');
+        
+        // Set flag BEFORE redirect
+        sessionStorage.setItem('wasillah_oauth_in_progress', '1');
+        sessionStorage.setItem('wasillah_oauth_provider', 'facebook.com');
+        sessionStorage.setItem('wasillah_oauth_time', Date.now().toString());
+        
+        console.log('🔵 [OAuth] Initiating signInWithRedirect for Facebook...');
+        await signInWithRedirect(auth, facebookProvider);
+      }
+    } catch (error: any) {
+      console.error('❌ [OAuth] loginWithFacebook: Error', error);
+      sessionStorage.removeItem('wasillah_oauth_in_progress');
+      sessionStorage.removeItem('wasillah_oauth_provider');
+      sessionStorage.removeItem('wasillah_oauth_time');
       throw error;
     }
   };
@@ -305,7 +374,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           activityLog: updatedActivityLog
         });
 
-        setUserData(prev => prev ? { ...prev, activityLog: updatedActivityLog } : null);
+        setUserData((prev: UserData | null) => prev ? { ...prev, activityLog: updatedActivityLog } : null);
       }
     }
   };
@@ -490,137 +559,112 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
     let isMounted = true;
-    // Use a ref-like pattern to track OAuth login state across async operations
-    let oauthLoginDetected = false;
 
     // Handle redirect result and set up auth listener
     const initAuth = async () => {
+      let isOAuthLogin = false;
+
       try {
-        // Check for redirect result first (from Google/Facebook login)
-        console.log('🔍 [OAuth Debug] Checking for redirect result...');
-        console.log('🔍 [OAuth Debug] Current URL:', window.location.href);
-        console.log('🔍 [OAuth Debug] URL Hash:', window.location.hash);
-        console.log('🔍 [OAuth Debug] URL Search:', window.location.search);
+        // CRITICAL: Always set persistence at init time too (for other flows)
+        try {
+          await setPersistence(auth, browserLocalPersistence);
+          console.log('✅ [OAuth] Persistence set at init');
+        } catch (pErr: any) {
+          console.warn('⚠️ [OAuth] setPersistence failed at init (non-fatal):', pErr);
+        }
+
+        console.log('🔍 [OAuth] Checking for redirect result...');
+        console.log('🔍 [OAuth] Current URL:', window.location.href);
         
-        // Check if we're coming from an OAuth redirect by examining URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const hasOAuthParams = urlParams.has('code') || urlParams.has('state') || 
-                              hashParams.has('code') || hashParams.has('state') ||
-                              urlParams.has('access_token') || hashParams.has('access_token');
-        
-        if (hasOAuthParams) {
-          console.log('🔍 [OAuth Debug] OAuth parameters detected in URL');
-          console.log('🔍 [OAuth Debug] URL Params:', Object.fromEntries(urlParams));
-          console.log('🔍 [OAuth Debug] Hash Params:', Object.fromEntries(hashParams));
+        // Check for redirect flag - this tells us an OAuth redirect was initiated
+        const oauthInProgress = sessionStorage.getItem('wasillah_oauth_in_progress');
+        if (oauthInProgress) {
+          console.log('🔍 [OAuth] OAuth redirect flag detected: wasillah_oauth_in_progress =', oauthInProgress);
         }
         
-        const result = await getRedirectResult(auth);
-        
-        if (result) {
-          console.log('✅ [OAuth Debug] Redirect result received');
-          console.log('✅ [OAuth Debug] User:', result.user?.email);
-          console.log('✅ [OAuth Debug] Provider:', result.providerId);
-          console.log('✅ [OAuth Debug] Operation Type:', result.operationType);
+        // Try to get redirect result (may return null even if user signed in due to race conditions)
+        const result = await getRedirectResult(auth).catch((e: any) => {
+          console.warn('⚠️ [OAuth] getRedirectResult caught error (continuing):', e?.code, e?.message);
+          return null;
+        });
+
+        if (result && result.user) {
+          console.log('✅ [OAuth] User authenticated via getRedirectResult:', result.user.email);
+          console.log('✅ [OAuth] Provider:', result.providerId);
+          console.log('✅ [OAuth] Operation Type:', result.operationType);
+          isOAuthLogin = true;
           
-          if (result.user) {
-            // User signed in via redirect - create/update their document
-            console.log('✅ User authenticated via redirect:', result.user.email);
-            oauthLoginDetected = true;
-            
-            // Set a flag in sessionStorage to indicate OAuth redirect just completed
-            // This will help us skip onboarding and go directly to dashboard
-            sessionStorage.setItem('oauthRedirectCompleted', 'true');
-            console.log('✅ OAuth redirect flag set in sessionStorage');
-            
-            // The onAuthStateChanged listener below will handle the rest
-          } else {
-            console.warn('⚠️ [OAuth Debug] Redirect result exists but no user object');
-          }
+          // Set completion flag for ProtectedRoute
+          sessionStorage.setItem('oauthRedirectCompleted', 'true');
         } else {
-          console.log('ℹ️ [OAuth Debug] No redirect result (normal page load)');
-          
-          // Check if user is actually authenticated (fallback)
-          const currentAuthUser = auth.currentUser;
-          if (currentAuthUser) {
-            console.log('🔍 [OAuth Debug] User is authenticated via auth.currentUser:', currentAuthUser.email);
-            console.log('🔍 [OAuth Debug] This might be a redirect that was already processed');
-            // Don't clear OAuth flag if user is authenticated - might be from previous redirect
+          // No redirect result - check if we had a redirect flag
+          if (oauthInProgress) {
+            console.log('🔍 [OAuth] Redirect flag present but getRedirectResult returned null');
+            console.log('🔍 [OAuth] Will rely on onAuthStateChanged to detect user');
+            // Don't clear flag here - wait for onAuthStateChanged to process user
+            // This handles the case where getRedirectResult returns null but user is authenticated
           } else {
-            // Clear any stale OAuth flag on normal page load with no user
+            console.log('ℹ️ [OAuth] No redirect result (normal page load)');
+            // Clear any stale completion flags
             sessionStorage.removeItem('oauthRedirectCompleted');
           }
         }
       } catch (error: any) {
-        console.error('❌ [OAuth Debug] Error handling redirect result:', error);
-        console.error('❌ [OAuth Debug] Error code:', error?.code);
-        console.error('❌ [OAuth Debug] Error message:', error?.message);
-        console.error('❌ [OAuth Debug] Error stack:', error?.stack);
-        
-        // Check for specific Firebase auth errors
-        if (error?.code === 'auth/redirect-cancelled-by-user') {
-          console.error('❌ [OAuth Debug] User cancelled the redirect');
-        } else if (error?.code === 'auth/popup-closed-by-user') {
-          console.error('❌ [OAuth Debug] Popup was closed (but we use redirect, not popup)');
-        } else if (error?.code === 'auth/unauthorized-domain') {
-          console.error('❌ [OAuth Debug] UNAUTHORIZED DOMAIN - Check Firebase Console > Authentication > Settings > Authorized domains');
-          console.error('❌ [OAuth Debug] Current domain:', window.location.hostname);
-        }
-        
-        // Clear flag on error to prevent stuck states
-        sessionStorage.removeItem('oauthRedirectCompleted');
-        // Continue to set up auth listener even if redirect fails
+        console.error('❌ [OAuth] Error handling redirect result:', error);
+        console.error('❌ [OAuth] Error code:', error?.code);
+        console.error('❌ [OAuth] Error message:', error?.message);
+        // Continue to auth listener - don't fail completely
       }
 
-      // Set up auth state listener (will catch redirect auth automatically)
-      unsubscribe = onAuthStateChanged(auth, async (user) => {
-        // Only update state if component is still mounted
+      // Auth state listener (primary source of truth for authentication)
+      unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
         if (!isMounted) return;
         
-        console.log('🔍 [OAuth Debug] Auth state changed. User:', user ? user.email : 'null');
-        console.log('🔍 [OAuth Debug] User provider:', user?.providerData?.map(p => p.providerId).join(', ') || 'none');
-        console.log('🔍 [OAuth Debug] User UID:', user?.uid || 'none');
+        console.log('🔍 [OAuth] Auth state changed. User:', user ? user.email : 'null');
         
         try {
           if (user) {
-            // Check if this might be from an OAuth redirect that wasn't caught
-            const oauthRedirectInitiated = sessionStorage.getItem('oauthRedirectInitiated') === 'true';
-            const redirectTime = sessionStorage.getItem('oauthRedirectTime');
-            const timeSinceRedirect = redirectTime ? Date.now() - parseInt(redirectTime) : null;
+            // Check if we had an OAuth redirect in progress
+            const oauthFlag = !!sessionStorage.getItem('wasillah_oauth_in_progress');
             
-            // If OAuth was initiated recently (within 5 minutes) and user is authenticated,
-            // treat it as OAuth login even if getRedirectResult didn't catch it
-            const recentOAuthRedirect = oauthRedirectInitiated && timeSinceRedirect && timeSinceRedirect < 300000;
-            
-            if (recentOAuthRedirect) {
-              console.log('🔍 [OAuth Debug] Recent OAuth redirect detected (within 5 minutes)');
-              console.log('🔍 [OAuth Debug] Time since redirect:', Math.round(timeSinceRedirect / 1000), 'seconds');
+            // Clear redirect flag now that we have an authenticated user
+            if (oauthFlag) {
+              sessionStorage.removeItem('wasillah_oauth_in_progress');
+              sessionStorage.removeItem('wasillah_oauth_provider');
+              sessionStorage.removeItem('wasillah_oauth_time');
+              console.log('✅ [OAuth] Cleared oauth redirect in-progress flag');
+              isOAuthLogin = true; // Mark as OAuth login
             }
             
-            // Check if user signed in with Google/Facebook provider
+            // Also check if user signed in with OAuth provider (fallback detection)
             const isOAuthProvider = user.providerData.some(
-              provider => provider.providerId === 'google.com' || provider.providerId === 'facebook.com'
+              (provider: any) => provider.providerId === 'google.com' || provider.providerId === 'facebook.com'
             );
             
             if (isOAuthProvider) {
-              console.log('🔍 [OAuth Debug] User authenticated via OAuth provider:', 
-                user.providerData.find(p => p.providerId === 'google.com' || p.providerId === 'facebook.com')?.providerId
+              console.log('🔍 [OAuth] User authenticated via OAuth provider:', 
+                user.providerData.find((p: any) => p.providerId === 'google.com' || p.providerId === 'facebook.com')?.providerId
               );
             }
             
-            // User is authenticated, fetch/create their data
-            console.log('🔍 [OAuth Debug] Creating/updating user document...');
+            // Determine if this is an OAuth login
+            // Priority: 1) Flag from getRedirectResult, 2) Redirect flag, 3) OAuth provider (for popup flows)
+            // For popup flows: If user has OAuth provider, treat as OAuth (popup doesn't set redirect flag)
+            // For redirect flows: We rely on the flag (already set above)
+            let isOAuthUser = isOAuthLogin || oauthFlag;
             
-            // Check sessionStorage as backup in case oauthLoginDetected wasn't captured
-            // Also check for recent OAuth redirect or OAuth provider
-            const sessionOAuthFlag = sessionStorage.getItem('oauthRedirectCompleted') === 'true';
-            const isOAuthUser = oauthLoginDetected || sessionOAuthFlag || (recentOAuthRedirect && isOAuthProvider);
-            
-            if (isOAuthUser && !sessionOAuthFlag) {
-              // Set the flag if we detected OAuth but it wasn't set
-              sessionStorage.setItem('oauthRedirectCompleted', 'true');
-              console.log('🔍 [OAuth Debug] OAuth flag set from fallback detection');
+            // If popup succeeded and user has OAuth provider, also treat as OAuth
+            // (Popup doesn't set redirect flag, so we detect via provider)
+            if (!isOAuthUser && isOAuthProvider) {
+              console.log('🔍 [OAuth] Popup flow detected via OAuth provider');
+              // For popup flows, treat as OAuth if provider is Google/Facebook
+              // This handles the case where popup succeeds but no redirect flag was set
+              isOAuthUser = true;
+              console.log('🔵 [OAuth] Popup OAuth user detected');
             }
+            
+            // Create/update user document
+            console.log('🔍 [OAuth] Creating/updating user document...');
             
             // For OAuth users, skip onboarding by default
             const additionalData = isOAuthUser ? {
@@ -630,56 +674,83 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             } : {};
             
             if (isOAuthUser) {
-              console.log('🔵 OAuth user detected - setting onboardingCompleted: true');
+              console.log('🔵 [OAuth] OAuth user detected - setting onboardingCompleted: true');
+              // Set completion flag for ProtectedRoute
+              sessionStorage.setItem('oauthRedirectCompleted', 'true');
             }
             
-            const userData = await createUserDocument(user, additionalData);
-            console.log('✅ User data loaded:', userData.email);
+            const createdUserData = await createUserDocument(user, additionalData);
+            console.log('✅ [OAuth] User data loaded:', createdUserData.email);
             
-            // Clean up OAuth redirect tracking flags
-            sessionStorage.removeItem('oauthRedirectInitiated');
-            sessionStorage.removeItem('oauthRedirectTime');
+            // Verify onboarding status was set correctly
+            let finalUserData = createdUserData;
+            if (isOAuthUser && createdUserData && !createdUserData.onboardingCompleted) {
+              // Edge case: onboarding wasn't set during document creation, update explicitly
+              try {
+                const userRef = doc(db, 'users', user.uid);
+                // Use dot notation for nested field update (consistent with codebase pattern)
+                await updateDoc(userRef, {
+                  onboardingCompleted: true,
+                  'preferences.onboardingCompleted': true,
+                  updatedAt: serverTimestamp()
+                });
+                console.log('✅ [OAuth] Set onboardingCompleted on user document (explicit update)');
+                
+                // Update local data to reflect the change
+                const updatedPreferences = {
+                  ...(createdUserData.preferences || {}),
+                  onboardingCompleted: true
+                };
+                finalUserData = {
+                  ...createdUserData,
+                  onboardingCompleted: true,
+                  preferences: updatedPreferences
+                };
+              } catch (updateErr: any) {
+                console.warn('⚠️ [OAuth] Could not set onboardingCompleted on user doc (non-fatal):', updateErr);
+                // Continue with original data - user is still authenticated
+              }
+            }
             
-            // Only update state if still mounted
+            // Update state with final user data
             if (isMounted) {
               setCurrentUser(user);
-              setUserData(userData);
-              setIsAdmin(userData.isAdmin);
-              setUserRole(userData.role || 'volunteer');
+              setUserData(finalUserData);
+              setIsAdmin(finalUserData.isAdmin);
+              setUserRole(finalUserData.role || 'volunteer');
               setIsGuest(false);
               setLoading(false);
             }
           } else {
-            // No user is logged in
-            console.log('ℹ️ [OAuth Debug] No user authenticated, showing welcome screen');
+            // No authenticated user
+            console.log('ℹ️ [OAuth] No user authenticated, showing welcome screen');
             
-            // Clean up OAuth flags when user logs out
+            // Clean up OAuth flags
             sessionStorage.removeItem('oauthRedirectCompleted');
-            sessionStorage.removeItem('oauthRedirectInitiated');
-            sessionStorage.removeItem('oauthRedirectTime');
+            sessionStorage.removeItem('wasillah_oauth_in_progress');
+            sessionStorage.removeItem('wasillah_oauth_provider');
+            sessionStorage.removeItem('wasillah_oauth_time');
             
-            // Only update state if still mounted
+            // Update state
             if (isMounted) {
               setCurrentUser(null);
               setUserData(null);
               setIsAdmin(false);
-              // Set loading to false regardless of guest mode
-              // Guest mode is handled separately by continueAsGuest()
               setLoading(false);
             }
           }
-        } catch (error: any) {
-          console.error('❌ [OAuth Debug] Error in auth state change:', error);
-          console.error('❌ [OAuth Debug] Error code:', error?.code);
-          console.error('❌ [OAuth Debug] Error message:', error?.message);
-          console.error('❌ [OAuth Debug] Error stack:', error?.stack);
+        } catch (err: any) {
+          console.error('❌ [OAuth] Error in auth state handling:', err);
+          console.error('❌ [OAuth] Error code:', err?.code);
+          console.error('❌ [OAuth] Error message:', err?.message);
           
-          // Clear OAuth flag on error
+          // Clear flags on error
           sessionStorage.removeItem('oauthRedirectCompleted');
-          sessionStorage.removeItem('oauthRedirectInitiated');
-          sessionStorage.removeItem('oauthRedirectTime');
+          sessionStorage.removeItem('wasillah_oauth_in_progress');
+          sessionStorage.removeItem('wasillah_oauth_provider');
+          sessionStorage.removeItem('wasillah_oauth_time');
           
-          // Even on error, stop loading to prevent infinite spinner
+          // Update state to prevent infinite loading
           if (isMounted) {
             setLoading(false);
             setCurrentUser(null);

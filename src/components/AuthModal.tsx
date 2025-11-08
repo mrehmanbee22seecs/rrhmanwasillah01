@@ -60,14 +60,40 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setError('');
     setLoading(true);
     try {
-      console.log('🟢 Calling loginWithGoogle from AuthModal...');
+      console.log('🟢 [AuthModal] Calling loginWithGoogle...');
+      console.log('🟢 [AuthModal] Current URL:', window.location.href);
+      console.log('🟢 [AuthModal] Hostname:', window.location.hostname);
+      
+      // Check if we're on an authorized domain
+      const hostname = window.location.hostname;
+      if (!hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+        console.log('🟢 [AuthModal] Production environment:', hostname);
+        console.warn('⚠️ [AuthModal] Ensure this domain is authorized in Firebase Console');
+        console.warn('⚠️ [AuthModal] Go to: Firebase Console > Authentication > Settings > Authorized domains');
+        console.warn('⚠️ [AuthModal] Add domain:', hostname);
+      }
+      
       await loginWithGoogle();
-      console.log('🟢 loginWithGoogle completed (redirect should happen)');
-      // Note: onClose() may not execute if redirect happens immediately
+      
+      // This line typically won't execute due to redirect, but log if it does
+      console.log('🟢 [AuthModal] loginWithGoogle completed (redirect should have happened)');
+      // Note: onClose() may not execute if redirect is immediate
       onClose();
     } catch (error: any) {
-      console.error('🔴 Error in handleGoogleLogin:', error);
-      setError(error.message || 'Failed to initiate Google login');
+      console.error('🔴 [AuthModal] Error in handleGoogleLogin:', error);
+      console.error('🔴 [AuthModal] Error code:', error?.code);
+      console.error('🔴 [AuthModal] Error message:', error?.message);
+      console.error('🔴 [AuthModal] Full error:', error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to initiate Google login';
+      if (error?.code === 'auth/unauthorized-domain') {
+        errorMessage = `Domain not authorized. Please add "${window.location.hostname}" to Firebase Console > Authentication > Settings > Authorized domains`;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };

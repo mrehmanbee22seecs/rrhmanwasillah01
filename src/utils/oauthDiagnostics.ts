@@ -86,15 +86,29 @@ export async function diagnoseOAuth(): Promise<void> {
   
   // 7. Check Firebase Console Configuration (instructions)
   console.log('\n7. Firebase Console Configuration Checklist:');
-  console.log('   ⚠️  Please verify in Firebase Console:');
-  console.log('   - Go to: Firebase Console > Authentication > Settings > Authorized domains');
+  console.log('   ⚠️  CRITICAL: Verify in Firebase Console:');
+  console.log('   - Go to: https://console.firebase.google.com');
+  console.log('   - Select project: wasilah-new');
+  console.log('   - Navigate to: Authentication > Settings > Authorized domains');
+  console.log('   - Click "Add domain" if needed');
+  console.log('   - Add this domain:', window.location.hostname);
   console.log('   - Ensure these domains are authorized:');
   console.log('     * localhost (for development)');
-  console.log('     *', window.location.hostname, '(current domain)');
+  console.log('     *', window.location.hostname, '(CURRENT DOMAIN - MUST BE AUTHORIZED)');
   console.log('     * Your production domain');
+  console.log('   - Wait 1-2 minutes for changes to propagate');
   console.log('   - Go to: Authentication > Sign-in method > Google');
-  console.log('   - Ensure Google sign-in is enabled');
+  console.log('   - Ensure Google sign-in is ENABLED');
   console.log('   - Check OAuth redirect URIs are configured');
+  
+  // Check if current domain looks like it might not be authorized
+  const hostname = window.location.hostname;
+  if (!hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+    console.log('\n   🚨 IMPORTANT:');
+    console.log('   Your current domain is:', hostname);
+    console.log('   This domain MUST be authorized in Firebase Console for OAuth to work!');
+    console.log('   If OAuth is not working, this is the most likely cause.');
+  }
   
   // 8. Browser checks
   console.log('\n8. Browser Checks:');
