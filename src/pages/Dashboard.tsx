@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { User, Calendar, Target, Heart, TrendingUp, Clock, MapPin, Users, Award, Settings, Bell, BookOpen, Activity, Star, ChevronRight, Filter, Search, Plus, FileText, Eye, CreditCard as Edit3, CheckCircle, Sparkles, Zap, Palette, Mail, RefreshCw, Lock, AlertCircle, GraduationCap, Shield, ArrowRight } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,9 @@ import { useMagneticEffect } from '../hooks/useMagneticEffect';
 import { getRoleIcon, getRoleName, ROLE_INFO } from '../utils/roleInfo';
 import { UserRole } from '../types/user';
 import OnboardingWizard from '../components/OnboardingWizard';
+import VolunteerDashboard from './VolunteerDashboard';
+import StudentDashboard from './StudentDashboard';
+import NGODashboard from './NGODashboard';
 
 interface DashboardActivity {
   id: string;
@@ -35,6 +38,22 @@ type SubmissionWithType = (ProjectSubmission | EventSubmission) & {
 const Dashboard = () => {
   const { userData, currentUser, updatePassword, resetPassword, resendEmailVerification, calculateProfileCompletion, refreshUserData, userRole } = useAuth();
   const { currentTheme, setTheme, themes } = useTheme();
+  
+  // Role-based dashboard routing
+  // If user has a specific role, render their specialized dashboard
+  if (userRole === 'volunteer') {
+    return <VolunteerDashboard />;
+  }
+  
+  if (userRole === 'student') {
+    return <StudentDashboard />;
+  }
+  
+  if (userRole === 'ngo') {
+    return <NGODashboard />;
+  }
+  
+  // Admin and default users continue to the original dashboard below
   const [activities, setActivities] = useState<DashboardActivity[]>([]);
   const [stats, setStats] = useState<UserStats>({
     projectsJoined: 0,
