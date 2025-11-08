@@ -1,0 +1,225 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isAdmin() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    function isOwnerOrAdmin(userId) {
+      return isOwner(userId) || isAdmin();
+    }
+    // Only admins or the project owner can link an event to a project
+    function canLinkEventToProject(projectId) {
+      let proj = get(/databases/$(database)/documents/project_submissions/$(projectId)).data;
+      return isAdmin() || (
+        isAuthenticated() && proj != null && proj.submittedBy == request.auth.uid
+      );
+    }
+
+    // === CHATBOT AND SUPPORTING COLLECTIONS ===
+
+    // Knowledge Base - Public read, admin write
+    match /kb/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Unanswered queries - public create, admin manage
+    match /unanswered_queries/{queryId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Admin notifications - admin manage; allow create from clients
+    match /admin_notifications/{notificationId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // === EXISTING RULES ===
+    
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwnerOrAdmin(userId);
+      allow delete: if isAdmin();
+    }
+
+    match /project_submissions/{submissionId} {
+      // Anyone can read approved + visible submissions; owners and admins can read theirs
+      allow read: if (resource.data.status == 'approved' && resource.data.isVisible == true)
+                  || (isAuthenticated() && request.auth.uid == resource.data.submittedBy)
+                  || isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.submittedBy || isAdmin());
+    }
+
+    match /event_submissions/{submissionId} {
+      allow read: if (resource.data.status == 'approved' && resource.data.isVisible == true)
+                  || (isAuthenticated() && request.auth.uid == resource.data.submittedBy)
+                  || isAdmin();
+      // Create allowed for authenticated users, but if linking to a project,
+      // only admins or that project's owner may do so
+      allow create: if isAuthenticated() && (
+        // If no projectId provided, allow create
+        !request.resource.data.keys().hasAny(['projectId']) ||
+        // Empty projectId treated as not linking
+        request.resource.data.projectId == '' ||
+        // When linking, enforce permission
+        canLinkEventToProject(request.resource.data.projectId)
+      );
+      // Updates/deletes allowed to submitter or admin, but changing/setting projectId
+      // must satisfy the same project-link permission
+      allow update, delete: if isAuthenticated() && (
+        (request.auth.uid == resource.data.submittedBy || isAdmin())
+      ) && (
+        // If projectId unchanged or not provided, ok; else must be allowed to link
+        !request.resource.data.keys().hasAny(['projectId']) ||
+        request.resource.data.projectId == resource.data.projectId ||
+        request.resource.data.projectId == '' ||
+        canLinkEventToProject(request.resource.data.projectId)
+      );
+    }
+
+    match /hero_content/{docId} { allow read: if true; allow write: if isAdmin(); }
+    match /programs/{programId} { allow read: if true; allow write: if isAdmin(); }
+    match /testimonials/{testimonialId} { allow read: if true; allow write: if isAdmin(); }
+    match /leaders/{leaderId} { allow read: if true; allow write: if isAdmin(); }
+    match /project_leaders/{leaderId} { allow read: if true; allow write: if isAdmin(); }
+    match /event_organizers/{organizerId} { allow read: if true; allow write: if isAdmin(); }
+    match /editableContent/{docId} { allow read: if true; allow write: if isAdmin(); }
+
+    match /volunteer_applications/{applicationId} {
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == resource.data.submittedBy || isAdmin());
+      allow create: if true;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /contact_messages/{messageId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // System docs (e.g., health checks, KB updates log)
+    match /system/{docId} {
+      allow read: if true;
+      // Allow authenticated writes for health checks; tighten if needed
+      allow write: if isAuthenticated();
+    }
+
+    match /content/{contentId} { allow read: if true; allow write: if isAdmin(); }
+    match /page_content/{pageId} { allow read: if true; allow write: if isAdmin(); }
+
+    match /users/{userId}/chats/{chatId} {
+      allow read, write: if isOwnerOrAdmin(userId);
+    }
+
+    match /users/{userId}/chats/{chatId}/messages/{messageId} {
+      allow read, write: if isOwnerOrAdmin(userId);
+    }
+
+    match /faqs/{faqId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // === REMINDERS COLLECTION ===
+    match /reminders/{reminderId} {
+      // Users can read their own reminders, admins can read all
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId || isAdmin());
+      // Authenticated users can create reminders
+      allow create: if isAuthenticated();
+      // Users can update/delete their own reminders, admins can update/delete any
+      allow update, delete: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // === APPLICATIONS, REGISTRATIONS, NEWSLETTER, EVENTS ===
+    match /project_applications/{id} {
+      allow create: if true;
+      // Users can read their own applications, admins can read all
+      allow read: if isAuthenticated() && 
+        (request.auth.token.email == resource.data.email || isAdmin());
+      // Only admins can update (for edit approval workflow)
+      allow update, delete: if isAdmin();
+    }
+
+    match /event_registrations/{id} {
+      allow create: if true;
+      // Users can read their own registrations, admins can read all
+      allow read: if isAuthenticated() && 
+        (request.auth.token.email == resource.data.email || isAdmin());
+      // Only admins can update (for edit approval workflow)
+      allow update, delete: if isAdmin();
+    }
+
+    match /newsletter_subscribers/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === EDIT REQUEST COLLECTIONS ===
+    // Project Application Edit Requests
+    match /project_application_edit_requests/{requestId} {
+      // Users can create edit requests for their own applications
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userEmail == request.auth.token.email &&
+                       request.resource.data.status == 'pending';
+      
+      // Users can read their own edit requests, admins can read all
+      allow read: if isAuthenticated() && 
+                     (resource.data.userEmail == request.auth.token.email || isAdmin());
+      
+      // Only admins can update (approve/reject)
+      allow update: if isAdmin() &&
+                       (request.resource.data.status == 'approved' || 
+                        request.resource.data.status == 'rejected');
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // Event Registration Edit Requests
+    match /event_registration_edit_requests/{requestId} {
+      // Users can create edit requests for their own registrations
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userEmail == request.auth.token.email &&
+                       request.resource.data.status == 'pending';
+      
+      // Users can read their own edit requests, admins can read all
+      allow read: if isAuthenticated() && 
+                     (resource.data.userEmail == request.auth.token.email || isAdmin());
+      
+      // Only admins can update (approve/reject)
+      allow update: if isAdmin() &&
+                       (request.resource.data.status == 'approved' || 
+                        request.resource.data.status == 'rejected');
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

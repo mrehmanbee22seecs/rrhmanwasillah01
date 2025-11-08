@@ -1,0 +1,79 @@
+[
+  {
+    "question": "What is Wasilah?",
+    "answer": "Wasilah is a community service organization dedicated to creating positive change through education, healthcare, environmental initiatives, and community development projects. We believe in empowering communities and creating sustainable impact through volunteer-driven programs.",
+    "keywords": ["wasilah", "organization", "about", "who", "what", "mission", "vision"],
+    "tags": ["general", "about"],
+    "sourceUrl": "/about"
+  },
+  {
+    "question": "How can I volunteer with Wasilah?",
+    "answer": "You can volunteer by visiting our 'Join Us' page and filling out the volunteer application form. Our team will review your application and contact you within 3-5 business days with available opportunities that match your interests and skills. We welcome volunteers from all backgrounds and experience levels.",
+    "keywords": ["volunteer", "join", "help", "participate", "contribute", "apply", "signup"],
+    "tags": ["volunteer", "join"],
+    "sourceUrl": "/volunteer"
+  },
+  {
+    "question": "What types of projects does Wasilah run?",
+    "answer": "We run various projects including education programs (tutoring, scholarship support), healthcare initiatives (free medical camps, health awareness), environmental conservation efforts (tree planting, clean-up drives), and community development projects (infrastructure, skills training). Each project is designed to create lasting positive impact in communities across Pakistan.",
+    "keywords": ["projects", "programs", "initiatives", "types", "work", "activities", "services"],
+    "tags": ["projects", "general"],
+    "sourceUrl": "/projects"
+  },
+  {
+    "question": "How can I donate or support Wasilah?",
+    "answer": "You can support Wasilah through volunteering your time, spreading awareness about our cause on social media, or contributing resources and materials for specific projects. While we don't currently accept monetary donations through the website, you can contact us directly to discuss specific ways you can help make a difference in your community.",
+    "keywords": ["donate", "support", "help", "contribute", "give", "funding", "sponsor"],
+    "tags": ["support", "donate"],
+    "sourceUrl": "/contact"
+  },
+  {
+    "question": "Where is Wasilah located?",
+    "answer": "We have offices in Karachi, Lahore, and Islamabad. Our projects span across multiple cities in Pakistan. Karachi Office: Main Office Complex, Clifton Block 5. Lahore Office: Model Town Extension. Islamabad Office: Blue Area Sector F-6. Visit our Contact page for detailed addresses, phone numbers, and contact information.",
+    "keywords": ["location", "office", "address", "where", "city", "karachi", "lahore", "islamabad"],
+    "tags": ["contact", "location"],
+    "sourceUrl": "/contact"
+  },
+  {
+    "question": "What events does Wasilah organize?",
+    "answer": "We organize various community events including health fairs (free checkups and screenings), educational workshops (skills development, career guidance), environmental initiatives (tree planting drives, beach cleanups), and community gatherings (cultural events, youth programs). Check our Events page for upcoming activities, schedules, and registration details. Most events are free to attend!",
+    "keywords": ["events", "activities", "workshops", "programs", "calendar", "schedule", "upcoming"],
+    "tags": ["events", "programs"]
+  },
+  {
+    "question": "How do I contact Wasilah?",
+    "answer": "You can reach us through our Contact page where you'll find our email (info@wasilah.org), phone numbers (Karachi: +92-21-XXXXXXX, Lahore: +92-42-XXXXXXX, Islamabad: +92-51-XXXXXXX), and office locations. You can also use this chat widget for quick questions. Our team typically responds to emails within 24 hours during business days.",
+    "keywords": ["contact", "email", "phone", "reach", "communicate", "call", "message"],
+    "tags": ["contact", "support"]
+  },
+  {
+    "question": "Can I submit a project idea to Wasilah?",
+    "answer": "Yes! We welcome community-driven project ideas and believe the best initiatives come from understanding local needs. You can submit your proposal through this chat widget, or contact us directly through our Contact page. Please include details about the problem you want to solve, your proposed solution, expected impact, and resources needed. Our team reviews all submissions and responds within 7-10 business days.",
+    "keywords": ["submit", "idea", "proposal", "suggest", "pitch", "project idea", "initiative"],
+    "tags": ["projects", "submit"]
+  },
+  {
+    "question": "What are the requirements to volunteer?",
+    "answer": "We welcome volunteers aged 16 and above. For minors (16-17 years), parental consent is required. No prior experience is necessary as we provide orientation and training for all volunteers. What we look for: commitment to our mission, reliability, good communication skills, and a desire to make a positive impact. Some specialized projects may require specific skills, which will be mentioned in the opportunity description.",
+    "keywords": ["requirements", "eligibility", "qualifications", "age", "experience", "criteria"],
+    "tags": ["volunteer", "requirements"]
+  },
+  {
+    "question": "How often are volunteer opportunities available?",
+    "answer": "We have ongoing volunteer opportunities year-round! Some opportunities are one-time events (like weekend drives or special campaigns), while others are regular commitments (like weekly tutoring sessions or monthly health camps). The frequency depends on the project and your availability. You can choose opportunities that fit your schedule - whether you can volunteer once a month or multiple times per week.",
+    "keywords": ["frequency", "schedule", "timing", "when", "availability", "commitment", "how often"],
+    "tags": ["volunteer", "schedule"]
+  },
+  {
+    "question": "Does Wasilah provide volunteer certificates?",
+    "answer": "Yes! We provide volunteer certificates after you complete 20 hours of verified volunteer service. The certificate includes your name, total hours served, projects participated in, and is signed by our leadership team. These certificates are useful for academic requirements, job applications, and personal records. We also provide reference letters upon request for volunteers who have served for 40+ hours.",
+    "keywords": ["certificate", "recognition", "proof", "document", "verification", "reference"],
+    "tags": ["volunteer", "certificates"]
+  },
+  {
+    "question": "How can I stay updated about Wasilah's activities?",
+    "answer": "Stay connected with us through multiple channels: 1) Check our Events page regularly for upcoming activities 2) Follow us on social media (Facebook, Instagram, Twitter @WasilahOrg) 3) Subscribe to our newsletter via the Contact page 4) Join our WhatsApp community groups (link provided after volunteer registration). We post updates at least twice a week about new projects, event photos, impact stories, and volunteer spotlights.",
+    "keywords": ["updates", "news", "social media", "follow", "subscribe", "newsletter", "information"],
+    "tags": ["general", "contact", "updates"]
+  }
+]
