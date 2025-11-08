@@ -221,13 +221,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithGoogle = async () => {
     try {
-      console.log('🔵 Starting Google login redirect...');
+      console.log('🔵 [OAuth Debug] Starting Google login redirect...');
+      console.log('🔵 [OAuth Debug] Current URL before redirect:', window.location.href);
+      console.log('🔵 [OAuth Debug] Current hostname:', window.location.hostname);
+      console.log('🔵 [OAuth Debug] App name:', auth.app.name);
+      
+      // Set a flag before redirect to track the attempt
+      sessionStorage.setItem('oauthRedirectInitiated', 'true');
+      sessionStorage.setItem('oauthRedirectTime', Date.now().toString());
+      
       // Use redirect instead of popup to avoid COOP issues
       await signInWithRedirect(auth, googleProvider);
-      console.log('🔵 Redirect initiated (this may not log if redirect is immediate)');
+      
+      // This line typically won't execute due to redirect, but log if it does
+      console.log('🔵 [OAuth Debug] Redirect initiated (this may not log if redirect is immediate)');
+      
       // User will be handled by getRedirectResult in useEffect
-    } catch (error) {
-      console.error('❌ Error during Google login redirect:', error);
+    } catch (error: any) {
+      console.error('❌ [OAuth Debug] Error during Google login redirect:', error);
+      console.error('❌ [OAuth Debug] Error code:', error?.code);
+      console.error('❌ [OAuth Debug] Error message:', error?.message);
+      
+      // Clear flags on error
+      sessionStorage.removeItem('oauthRedirectInitiated');
+      sessionStorage.removeItem('oauthRedirectTime');
+      
+      // Check for specific errors
+      if (error?.code === 'auth/unauthorized-domain') {
+        const errorMsg = `Unauthorized domain. Please add "${window.location.hostname}" to Firebase Console > Authentication > Settings > Authorized domains`;
+        console.error('❌ [OAuth Debug]', errorMsg);
+        throw new Error(errorMsg);
+      }
+      
       throw error;
     }
   };
@@ -472,26 +497,76 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const initAuth = async () => {
       try {
         // Check for redirect result first (from Google/Facebook login)
-        console.log('Checking for redirect result...');
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          // User signed in via redirect - create/update their document
-          console.log('✅ User authenticated via redirect:', result.user.email);
-          oauthLoginDetected = true;
-          
-          // Set a flag in sessionStorage to indicate OAuth redirect just completed
-          // This will help us skip onboarding and go directly to dashboard
-          sessionStorage.setItem('oauthRedirectCompleted', 'true');
-          console.log('✅ OAuth redirect flag set in sessionStorage');
-          
-          // The onAuthStateChanged listener below will handle the rest
-        } else {
-          console.log('No redirect result (normal page load)');
-          // Clear any stale OAuth flag on normal page load
-          sessionStorage.removeItem('oauthRedirectCompleted');
+        console.log('🔍 [OAuth Debug] Checking for redirect result...');
+        console.log('🔍 [OAuth Debug] Current URL:', window.location.href);
+        console.log('🔍 [OAuth Debug] URL Hash:', window.location.hash);
+        console.log('🔍 [OAuth Debug] URL Search:', window.location.search);
+        
+        // Check if we're coming from an OAuth redirect by examining URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hasOAuthParams = urlParams.has('code') || urlParams.has('state') || 
+                              hashParams.has('code') || hashParams.has('state') ||
+                              urlParams.has('access_token') || hashParams.has('access_token');
+        
+        if (hasOAuthParams) {
+          console.log('🔍 [OAuth Debug] OAuth parameters detected in URL');
+          console.log('🔍 [OAuth Debug] URL Params:', Object.fromEntries(urlParams));
+          console.log('🔍 [OAuth Debug] Hash Params:', Object.fromEntries(hashParams));
         }
-      } catch (error) {
-        console.error('❌ Error handling redirect result:', error);
+        
+        const result = await getRedirectResult(auth);
+        
+        if (result) {
+          console.log('✅ [OAuth Debug] Redirect result received');
+          console.log('✅ [OAuth Debug] User:', result.user?.email);
+          console.log('✅ [OAuth Debug] Provider:', result.providerId);
+          console.log('✅ [OAuth Debug] Operation Type:', result.operationType);
+          
+          if (result.user) {
+            // User signed in via redirect - create/update their document
+            console.log('✅ User authenticated via redirect:', result.user.email);
+            oauthLoginDetected = true;
+            
+            // Set a flag in sessionStorage to indicate OAuth redirect just completed
+            // This will help us skip onboarding and go directly to dashboard
+            sessionStorage.setItem('oauthRedirectCompleted', 'true');
+            console.log('✅ OAuth redirect flag set in sessionStorage');
+            
+            // The onAuthStateChanged listener below will handle the rest
+          } else {
+            console.warn('⚠️ [OAuth Debug] Redirect result exists but no user object');
+          }
+        } else {
+          console.log('ℹ️ [OAuth Debug] No redirect result (normal page load)');
+          
+          // Check if user is actually authenticated (fallback)
+          const currentAuthUser = auth.currentUser;
+          if (currentAuthUser) {
+            console.log('🔍 [OAuth Debug] User is authenticated via auth.currentUser:', currentAuthUser.email);
+            console.log('🔍 [OAuth Debug] This might be a redirect that was already processed');
+            // Don't clear OAuth flag if user is authenticated - might be from previous redirect
+          } else {
+            // Clear any stale OAuth flag on normal page load with no user
+            sessionStorage.removeItem('oauthRedirectCompleted');
+          }
+        }
+      } catch (error: any) {
+        console.error('❌ [OAuth Debug] Error handling redirect result:', error);
+        console.error('❌ [OAuth Debug] Error code:', error?.code);
+        console.error('❌ [OAuth Debug] Error message:', error?.message);
+        console.error('❌ [OAuth Debug] Error stack:', error?.stack);
+        
+        // Check for specific Firebase auth errors
+        if (error?.code === 'auth/redirect-cancelled-by-user') {
+          console.error('❌ [OAuth Debug] User cancelled the redirect');
+        } else if (error?.code === 'auth/popup-closed-by-user') {
+          console.error('❌ [OAuth Debug] Popup was closed (but we use redirect, not popup)');
+        } else if (error?.code === 'auth/unauthorized-domain') {
+          console.error('❌ [OAuth Debug] UNAUTHORIZED DOMAIN - Check Firebase Console > Authentication > Settings > Authorized domains');
+          console.error('❌ [OAuth Debug] Current domain:', window.location.hostname);
+        }
+        
         // Clear flag on error to prevent stuck states
         sessionStorage.removeItem('oauthRedirectCompleted');
         // Continue to set up auth listener even if redirect fails
@@ -502,17 +577,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Only update state if component is still mounted
         if (!isMounted) return;
         
-        console.log('Auth state changed. User:', user ? user.email : 'null');
+        console.log('🔍 [OAuth Debug] Auth state changed. User:', user ? user.email : 'null');
+        console.log('🔍 [OAuth Debug] User provider:', user?.providerData?.map(p => p.providerId).join(', ') || 'none');
+        console.log('🔍 [OAuth Debug] User UID:', user?.uid || 'none');
         
         try {
           if (user) {
-            // User is authenticated, fetch/create their data
-            console.log('Creating/updating user document...');
+            // Check if this might be from an OAuth redirect that wasn't caught
+            const oauthRedirectInitiated = sessionStorage.getItem('oauthRedirectInitiated') === 'true';
+            const redirectTime = sessionStorage.getItem('oauthRedirectTime');
+            const timeSinceRedirect = redirectTime ? Date.now() - parseInt(redirectTime) : null;
             
-            // Check sessionStorage as backup in case isOAuthLogin wasn't captured
-            // This handles edge cases where onAuthStateChanged fires before getRedirectResult completes
+            // If OAuth was initiated recently (within 5 minutes) and user is authenticated,
+            // treat it as OAuth login even if getRedirectResult didn't catch it
+            const recentOAuthRedirect = oauthRedirectInitiated && timeSinceRedirect && timeSinceRedirect < 300000;
+            
+            if (recentOAuthRedirect) {
+              console.log('🔍 [OAuth Debug] Recent OAuth redirect detected (within 5 minutes)');
+              console.log('🔍 [OAuth Debug] Time since redirect:', Math.round(timeSinceRedirect / 1000), 'seconds');
+            }
+            
+            // Check if user signed in with Google/Facebook provider
+            const isOAuthProvider = user.providerData.some(
+              provider => provider.providerId === 'google.com' || provider.providerId === 'facebook.com'
+            );
+            
+            if (isOAuthProvider) {
+              console.log('🔍 [OAuth Debug] User authenticated via OAuth provider:', 
+                user.providerData.find(p => p.providerId === 'google.com' || p.providerId === 'facebook.com')?.providerId
+              );
+            }
+            
+            // User is authenticated, fetch/create their data
+            console.log('🔍 [OAuth Debug] Creating/updating user document...');
+            
+            // Check sessionStorage as backup in case oauthLoginDetected wasn't captured
+            // Also check for recent OAuth redirect or OAuth provider
             const sessionOAuthFlag = sessionStorage.getItem('oauthRedirectCompleted') === 'true';
-            const isOAuthUser = oauthLoginDetected || sessionOAuthFlag;
+            const isOAuthUser = oauthLoginDetected || sessionOAuthFlag || (recentOAuthRedirect && isOAuthProvider);
+            
+            if (isOAuthUser && !sessionOAuthFlag) {
+              // Set the flag if we detected OAuth but it wasn't set
+              sessionStorage.setItem('oauthRedirectCompleted', 'true');
+              console.log('🔍 [OAuth Debug] OAuth flag set from fallback detection');
+            }
             
             // For OAuth users, skip onboarding by default
             const additionalData = isOAuthUser ? {
@@ -528,6 +636,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userData = await createUserDocument(user, additionalData);
             console.log('✅ User data loaded:', userData.email);
             
+            // Clean up OAuth redirect tracking flags
+            sessionStorage.removeItem('oauthRedirectInitiated');
+            sessionStorage.removeItem('oauthRedirectTime');
+            
             // Only update state if still mounted
             if (isMounted) {
               setCurrentUser(user);
@@ -539,10 +651,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           } else {
             // No user is logged in
-            console.log('No user authenticated, showing welcome screen');
+            console.log('ℹ️ [OAuth Debug] No user authenticated, showing welcome screen');
             
-            // Clear OAuth flag when user logs out
+            // Clean up OAuth flags when user logs out
             sessionStorage.removeItem('oauthRedirectCompleted');
+            sessionStorage.removeItem('oauthRedirectInitiated');
+            sessionStorage.removeItem('oauthRedirectTime');
             
             // Only update state if still mounted
             if (isMounted) {
@@ -554,10 +668,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setLoading(false);
             }
           }
-        } catch (error) {
-          console.error('❌ Error in auth state change:', error);
+        } catch (error: any) {
+          console.error('❌ [OAuth Debug] Error in auth state change:', error);
+          console.error('❌ [OAuth Debug] Error code:', error?.code);
+          console.error('❌ [OAuth Debug] Error message:', error?.message);
+          console.error('❌ [OAuth Debug] Error stack:', error?.stack);
+          
           // Clear OAuth flag on error
           sessionStorage.removeItem('oauthRedirectCompleted');
+          sessionStorage.removeItem('oauthRedirectInitiated');
+          sessionStorage.removeItem('oauthRedirectTime');
+          
           // Even on error, stop loading to prevent infinite spinner
           if (isMounted) {
             setLoading(false);
