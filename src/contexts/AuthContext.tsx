@@ -94,12 +94,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         userSnap = await getDoc(userRef);
       } catch (error) {
         console.error('❌ Error reading user document:', error);
+        console.error('❌ Error code:', (error as any).code);
+        console.error('❌ Error message:', (error as Error).message);
+        console.error('❌ User:', user.email, 'UID:', user.uid);
+        
         if (retryCount < MAX_RETRIES) {
           console.log(`Retrying getDoc in ${RETRY_DELAY}ms...`);
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           return createUserDocument(user, additionalData, retryCount + 1);
         }
-        throw error;
+        
+        console.error('❌ FATAL: Failed to read user document after', MAX_RETRIES, 'retries');
+        throw new Error(`Failed to read user document: ${(error as Error).message}`);
       }
 
       if (!userSnap.exists()) {
@@ -144,12 +150,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.log('✅ User document created successfully');
         } catch (error) {
           console.error('❌ Error writing user document:', error);
+          console.error('❌ Error code:', (error as any).code);
+          console.error('❌ Error message:', (error as Error).message);
+          console.error('❌ User:', user.email, 'UID:', user.uid);
+          console.error('❌ Attempting to write data:', {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            isOAuthUser
+          });
+          
           if (retryCount < MAX_RETRIES) {
             console.log(`Retrying setDoc in ${RETRY_DELAY}ms...`);
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
             return createUserDocument(user, additionalData, retryCount + 1);
           }
-          throw error;
+          
+          console.error('❌ FATAL: Failed to create user document after', MAX_RETRIES, 'retries');
+          console.error('❌ This is likely a Firestore rules or permissions issue');
+          throw new Error(`Failed to create user document: ${(error as Error).message}`);
         }
         
         // Fetch the document again to get server-resolved timestamps with retry
@@ -638,14 +657,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         } catch (error) {
           console.error('❌ Error in auth state change:', error);
+          console.error('❌ Error details:', {
+            message: (error as Error).message,
+            code: (error as any).code,
+            stack: (error as Error).stack
+          });
+          
           // Clear OAuth flag on error
           sessionStorage.removeItem('oauthRedirectCompleted');
-          // Even on error, stop loading to prevent infinite spinner
+          
+          // IMPORTANT: Do NOT clear currentUser here!
+          // The user is still authenticated in Firebase Auth even if Firestore fails
+          // Only clear if user is actually null from Firebase
           if (isMounted) {
             setLoading(false);
-            setCurrentUser(null);
-            setUserData(null);
-            setIsAdmin(false);
+            
+            // Keep the currentUser if we have it - only clear if auth says no user
+            if (!user) {
+              setCurrentUser(null);
+              setUserData(null);
+              setIsAdmin(false);
+            } else {
+              // User is authenticated but we failed to load/create their document
+              // Keep them logged in but with null userData
+              setCurrentUser(user);
+              setUserData(null);
+              setIsAdmin(false);
+              
+              // Log this critical error - user is stuck
+              console.error('🚨 CRITICAL: User is authenticated but failed to load profile document');
+              console.error('🚨 User email:', user.email);
+              console.error('🚨 User UID:', user.uid);
+              console.error('🚨 This will cause the user to see welcome screen');
+            }
           }
         }
       });

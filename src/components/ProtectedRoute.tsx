@@ -109,6 +109,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
+  // Check if OAuth redirect is in progress - show loading instead of welcome screen
+  const oauthInProgress = sessionStorage.getItem('oauthRedirectCompleted') === 'true';
+  if (oauthInProgress && currentUser && !userData) {
+    console.log('⏳ OAuth in progress, waiting for userData to load...');
+    return (
+      <div className="min-h-screen bg-cream-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-vibrant-orange mx-auto mb-4"></div>
+          <p className="text-2xl font-luxury-heading text-black">Completing sign-in...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show welcome screen for unauthenticated non-guest users
   if (!currentUser && !isGuest) {
     return (
