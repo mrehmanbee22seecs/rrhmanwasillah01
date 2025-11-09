@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Heart, User, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AdminPanel from './AdminPanel';
+import NotificationBell from './NotificationBell';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -77,66 +78,69 @@ const Header = () => {
           </div>
 
           {/* User Menu */}
-          <div className="hidden lg:block relative">
-            {currentUser && !isGuest ? (
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-3 p-3 rounded-luxury hover:bg-logo-navy-light/60 transition-colors"
-                >
-                  {userData?.photoURL ? (
-                    <img
-                      src={userData.photoURL}
-                      alt="Profile"
-                      className="w-10 h-10 rounded-full border-2 border-vibrant-orange"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-vibrant-orange rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-white" />
-                    </div>
-                  )}
-                  <div className="text-left">
-                    <p className="text-cream-elegant font-luxury-semibold text-sm">
-                      {userData?.displayName || 'User'}
-                    </p>
-                    {isAdmin && (
-                      <p className="text-vibrant-orange-light text-xs">Admin</p>
+          <div className="hidden lg:flex items-center space-x-3">
+            {currentUser && !isGuest && <NotificationBell />}
+            <div className="relative">
+              {currentUser && !isGuest ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center space-x-3 p-3 rounded-luxury hover:bg-logo-navy-light/60 transition-colors"
+                  >
+                    {userData?.photoURL ? (
+                      <img
+                        src={userData.photoURL}
+                        alt="Profile"
+                        className="w-10 h-10 rounded-full border-2 border-vibrant-orange"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-vibrant-orange rounded-full flex items-center justify-center">
+                        <User className="w-6 h-6 text-white" />
+                      </div>
                     )}
-                  </div>
-                </button>
+                    <div className="text-left">
+                      <p className="text-cream-elegant font-luxury-semibold text-sm">
+                        {userData?.displayName || 'User'}
+                      </p>
+                      {isAdmin && (
+                        <p className="text-vibrant-orange-light text-xs">Admin</p>
+                      )}
+                    </div>
+                  </button>
 
-                {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-48 luxury-glass-dark rounded-luxury-lg border-2 border-vibrant-orange/30 py-2">
-                    {isAdmin && (
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-48 luxury-glass-dark rounded-luxury-lg border-2 border-vibrant-orange/30 py-2">
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            setShowAdminPanel(true);
+                            setShowUserMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-cream-elegant hover:bg-vibrant-orange/20 transition-colors flex items-center"
+                        >
+                          <Settings className="w-4 h-4 mr-3" />
+                          Admin Panel
+                        </button>
+                      )}
                       <button
                         onClick={() => {
-                          setShowAdminPanel(true);
+                          logout();
                           setShowUserMenu(false);
                         }}
                         className="w-full text-left px-4 py-2 text-cream-elegant hover:bg-vibrant-orange/20 transition-colors flex items-center"
                       >
-                        <Settings className="w-4 h-4 mr-3" />
-                        Admin Panel
+                        <LogOut className="w-4 h-4 mr-3" />
+                        Sign Out
                       </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        logout();
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-cream-elegant hover:bg-vibrant-orange/20 transition-colors flex items-center"
-                    >
-                      <LogOut className="w-4 h-4 mr-3" />
-                      Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : isGuest ? (
-              <div className="text-cream-elegant font-luxury-body">
-                <span className="text-sm opacity-75">Guest User</span>
-              </div>
-            ) : null}
+                    </div>
+                  )}
+                </div>
+              ) : isGuest ? (
+                <div className="text-cream-elegant font-luxury-body">
+                  <span className="text-sm opacity-75">Guest User</span>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           {/* Mobile menu button */}

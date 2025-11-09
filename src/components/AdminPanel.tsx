@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, MessageSquare, Mail, Calendar, Target, Settings, CreditCard as Edit3, Save, X, Plus, Trash2, Eye, EyeOff, Download, CheckCircle, XCircle, Clock, FileText, Mail as MailIcon, RefreshCw, Database, ExternalLink } from 'lucide-react';
+import { Users, MessageSquare, Mail, Calendar, Target, Settings, CreditCard as Edit3, Save, X, Plus, Trash2, Eye, EyeOff, Download, CheckCircle, XCircle, Clock, FileText, Mail as MailIcon, RefreshCw, Database, ExternalLink, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, addDoc, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -10,6 +10,12 @@ import { sendEmail, formatSubmissionStatusUpdateEmail } from '../utils/emailServ
 import { migrateApprovedSubmissions } from '../utils/migrateVisibility';
 import ChatsPanel from './Admin/ChatsPanel';
 import { seedKnowledgeBase } from '../utils/kbSeed';
+import AdvancedFilters, { FilterCriteria, SavedFilter } from './Admin/AdvancedFilters';
+import BatchOperations, { SelectableItem } from './Admin/BatchOperations';
+import ModerationTools from './Admin/ModerationTools';
+import AnalyticsOverview from './Admin/AnalyticsOverview';
+import { applyFilters } from '../utils/adminFilterUtils';
+import { sendProjectUpdateNotification } from '../utils/notificationHelpers';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -79,6 +85,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const [showRawJson, setShowRawJson] = useState(false);
   const [showAuditTrail, setShowAuditTrail] = useState(true);
 
+  // Enhanced admin features state
+  const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({
+    searchQuery: '',
+    searchFields: ['title', 'description', 'submitterName', 'submitterEmail'],
+    types: [],
+    statuses: [],
+    categories: [],
+    dateRange: { start: '', end: '' },
+    locations: [],
+    visibility: 'all',
+    customFilters: {},
+  });
+  const [filteredSubmissions, setFilteredSubmissions] = useState<SubmissionWithType[]>([]);
+  const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([]);
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+
   const { isAdmin, currentUser } = useAuth();
 
   // Broadcast open/close so other widgets (e.g., Chat/Donation) can coordinate
@@ -95,6 +117,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       fetchEditableContent();
     }
   }, [isOpen, isAdmin]);
+
+  // Apply filters to submissions
+  useEffect(() => {
+    const filtered = applyFilters(submissions, filterCriteria);
+    setFilteredSubmissions(filtered);
+  }, [submissions, filterCriteria]);
 
   const fetchResponses = async () => {
     setLoading(true);
@@ -788,6 +816,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           {[
             { id: 'responses', label: 'Responses', shortLabel: 'Resp', icon: MessageSquare },
             { id: 'submissions', label: 'Submissions', shortLabel: 'Sub', icon: FileText },
+            { id: 'analytics', label: 'Analytics', shortLabel: 'Stats', icon: BarChart3 },
             { id: 'applications', label: 'Applications', shortLabel: 'Apps', icon: Users },
             { id: 'edit-requests', label: 'Edit Requests', shortLabel: 'Edits', icon: RefreshCw },
             { id: 'registered', label: 'Registered Users', shortLabel: 'Reg', icon: Users },
@@ -1381,7 +1410,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             </div>
           )}
           {activeTab === 'submissions' && (
-            <div>
+            <div className="space-y-4">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-luxury-heading text-black">Content Submissions</h3>
                 <div className="flex space-x-3">
@@ -1402,19 +1431,74 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* Status Filter */}
-              <div className="flex space-x-2 mb-6">
-                {['all', 'pending', 'approved', 'rejected', 'draft'].map((status) => (
-                  <button
-                    key={status}
-                    className={`px-4 py-2 rounded-luxury font-luxury-semibold transition-colors ${
-                      status === 'all' ? 'bg-vibrant-orange text-white' : 'bg-gray-200 text-black hover:bg-gray-300'
-                    }`}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </button>
-                ))}
-              </div>
+              {/* Advanced Filters */}
+              <AdvancedFilters
+                onFilterChange={(criteria) => {
+                  setFilterCriteria(criteria);
+                }}
+                onExport={(criteria) => {
+                  const filtered = applyFilters(submissions, criteria);
+                  try {
+                    const workbook = XLSX.utils.book_new();
+                    const worksheetData = filtered.map((item) => ({
+                      Type: item.submissionType === 'project' ? 'Project' : 'Event',
+                      ID: item.id,
+                      Title: item.title,
+                      Status: item.status,
+                      Visibility: item.isVisible ? 'Visible' : 'Hidden',
+                      Category: item.category,
+                      Location: item.location,
+                      Submitter: item.submitterName,
+                      'Submitter Email': item.submitterEmail,
+                      'Submitted At': item.submittedAt?.toDate?.()?.toISOString() || item.submittedAt,
+                      'Reviewed At': item.reviewedAt?.toDate?.()?.toISOString() || item.reviewedAt,
+                    }));
+                    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+                    XLSX.utils.book_append_sheet(workbook, worksheet, 'Submissions');
+                    XLSX.writeFile(workbook, `submissions_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    alert(`Exported ${filtered.length} submission(s) to Excel`);
+                  } catch (error) {
+                    console.error('Error exporting:', error);
+                    alert('Error exporting data');
+                  }
+                }}
+                savedFilters={savedFilters}
+                onSaveFilter={(filter) => {
+                  const newFilter: SavedFilter = {
+                    ...filter,
+                    id: Date.now().toString(),
+                    createdAt: new Date().toISOString(),
+                  };
+                  setSavedFilters([...savedFilters, newFilter]);
+                }}
+                onDeleteFilter={(filterId) => {
+                  setSavedFilters(savedFilters.filter((f) => f.id !== filterId));
+                }}
+              />
+
+              {/* Batch Operations */}
+              {selectedSubmissions.length > 0 && (
+                <BatchOperations
+                  items={filteredSubmissions.map((s) => ({
+                    id: s.id,
+                    type: s.submissionType,
+                    status: s.status,
+                    isVisible: s.isVisible || false,
+                    title: s.title,
+                    submittedBy: s.submittedBy,
+                    submitterEmail: s.submitterEmail,
+                    submitterName: s.submitterName,
+                  } as SelectableItem))}
+                  selectedItems={selectedSubmissions}
+                  onSelectionChange={setSelectedSubmissions}
+                  onItemsUpdate={async (updatedItems) => {
+                    // Refresh submissions after batch operations
+                    await fetchSubmissions();
+                    setSelectedSubmissions([]);
+                  }}
+                  currentUser={currentUser || undefined}
+                />
+              )}
 
               {loading ? (
                 <div className="text-center py-8">
@@ -1423,102 +1507,143 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {submissions.map((submission) => (
+                  <div className="text-sm text-gray-600 mb-4">
+                    Showing {filteredSubmissions.length} of {submissions.length} submissions
+                    {selectedSubmissions.length > 0 && ` (${selectedSubmissions.length} selected)`}
+                  </div>
+                  {filteredSubmissions.map((submission) => (
                     <div key={submission.id} className="luxury-card bg-cream-white p-6 border-l-4 border-vibrant-orange">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSubmissionTypeColor(submission.submissionType)}`}>
-                            {submission.submissionType.charAt(0).toUpperCase() + submission.submissionType.slice(1)}
-                          </span>
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSubmissionStatusColor(submission.status)}`}>
-                            {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
-                          </span>
-                          {submission.isVisible !== undefined && (
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${submission.isVisible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                              {submission.isVisible ? 'Visible' : 'Hidden'}
-                            </span>
-                          )}
-                          <span className="text-sm text-gray-500">
-                            {submission.submittedAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
-                          </span>
-                        </div>
+                      <div className="flex items-start space-x-3 mb-4">
+                        {/* Checkbox for batch selection */}
+                        <input
+                          type="checkbox"
+                          checked={selectedSubmissions.includes(submission.id)}
+                          onChange={() => {
+                            if (selectedSubmissions.includes(submission.id)) {
+                              setSelectedSubmissions(selectedSubmissions.filter((id) => id !== submission.id));
+                            } else {
+                              setSelectedSubmissions([...selectedSubmissions, submission.id]);
+                            }
+                          }}
+                          className="mt-1 w-4 h-4 text-vibrant-orange rounded focus:ring-vibrant-orange"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSubmissionTypeColor(submission.submissionType)}`}>
+                                {submission.submissionType.charAt(0).toUpperCase() + submission.submissionType.slice(1)}
+                              </span>
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSubmissionStatusColor(submission.status)}`}>
+                                {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                              </span>
+                              {submission.isVisible !== undefined && (
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${submission.isVisible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                  {submission.isVisible ? 'Visible' : 'Hidden'}
+                                </span>
+                              )}
+                              <span className="text-sm text-gray-500">
+                                {submission.submittedAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
+                              </span>
+                            </div>
 
-                        <div className="flex space-x-2">
-                          {submission.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => setReviewingSubmission(reviewingSubmission === submission.id ? null : submission.id)}
-                                className="text-blue-600 hover:text-blue-800 flex items-center px-3 py-1 bg-blue-50 rounded-luxury"
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                Review
-                              </button>
-                              <button
-                                onClick={() => updateSubmissionStatus(submission.id, submission.submissionType, 'approved')}
-                                className="text-green-600 hover:text-green-800 flex items-center px-3 py-1 bg-green-50 rounded-luxury"
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Approve
-                              </button>
-                            </>
-                          )}
-
-                          {submission.status === 'approved' && (
-                            <button
-                              onClick={() => toggleSubmissionVisibility(submission.id, submission.submissionType, submission.isVisible || false)}
-                              className={`flex items-center px-3 py-1 rounded-luxury ${
-                                submission.isVisible
-                                  ? 'text-gray-600 hover:text-gray-800 bg-gray-50'
-                                  : 'text-green-600 hover:text-green-800 bg-green-50'
-                              }`}
-                              title={submission.isVisible ? 'Hide from public' : 'Show to public'}
-                            >
-                              {submission.isVisible ? (
+                            <div className="flex space-x-2">
+                              {submission.status === 'pending' && (
                                 <>
-                                  <EyeOff className="w-4 h-4 mr-1" />
-                                  Hide
-                                </>
-                              ) : (
-                                <>
-                                  <Eye className="w-4 h-4 mr-1" />
-                                  Show
+                                  <button
+                                    onClick={() => setReviewingSubmission(reviewingSubmission === submission.id ? null : submission.id)}
+                                    className="text-blue-600 hover:text-blue-800 flex items-center px-3 py-1 bg-blue-50 rounded-luxury"
+                                  >
+                                    <Eye className="w-4 h-4 mr-1" />
+                                    Review
+                                  </button>
+                                  <button
+                                    onClick={() => updateSubmissionStatus(submission.id, submission.submissionType, 'approved')}
+                                    className="text-green-600 hover:text-green-800 flex items-center px-3 py-1 bg-green-50 rounded-luxury"
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Approve
+                                  </button>
                                 </>
                               )}
-                            </button>
+
+                              {submission.status === 'approved' && (
+                                <button
+                                  onClick={() => toggleSubmissionVisibility(submission.id, submission.submissionType, submission.isVisible || false)}
+                                  className={`flex items-center px-3 py-1 rounded-luxury ${
+                                    submission.isVisible
+                                      ? 'text-gray-600 hover:text-gray-800 bg-gray-50'
+                                      : 'text-green-600 hover:text-green-800 bg-green-50'
+                                  }`}
+                                  title={submission.isVisible ? 'Hide from public' : 'Show to public'}
+                                >
+                                  {submission.isVisible ? (
+                                    <>
+                                      <EyeOff className="w-4 h-4 mr-1" />
+                                      Hide
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye className="w-4 h-4 mr-1" />
+                                      Show
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => deleteSubmission(submission.id, submission.submissionType)}
+                                className="text-red-600 hover:text-red-800 flex items-center px-3 py-1 bg-red-50 rounded-luxury"
+                                title="Delete submission"
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="mb-4">
+                            <h4 className="text-xl font-luxury-heading text-black mb-2">{submission.title}</h4>
+                            <p className="text-black/70 font-luxury-body mb-2">{submission.description}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-black">
+                              <div>
+                                <strong>Category:</strong> {submission.category}
+                              </div>
+                              <div>
+                                <strong>Location:</strong> {submission.location}
+                              </div>
+                              <div>
+                                <strong>Submitted by:</strong> {submission.submitterName}
+                              </div>
+                              <div>
+                                <strong>Contact:</strong> {submission.submitterEmail}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Moderation Tools for pending submissions */}
+                          {submission.status === 'pending' && reviewingSubmission === submission.id && (
+                            <div className="mt-4">
+                              <ModerationTools
+                                item={submission as any}
+                                onApprove={async (comments) => {
+                                  await updateSubmissionStatus(submission.id, submission.submissionType, 'approved', comments);
+                                  setReviewingSubmission(null);
+                                  setAdminComments('');
+                                  setRejectionReason('');
+                                }}
+                                onReject={async (reason, comments) => {
+                                  await updateSubmissionStatus(submission.id, submission.submissionType, 'rejected', comments, reason);
+                                  setReviewingSubmission(null);
+                                  setAdminComments('');
+                                  setRejectionReason('');
+                                }}
+                                currentUser={currentUser || undefined}
+                              />
+                            </div>
                           )}
 
-                          <button
-                            onClick={() => deleteSubmission(submission.id, submission.submissionType)}
-                            className="text-red-600 hover:text-red-800 flex items-center px-3 py-1 bg-red-50 rounded-luxury"
-                            title="Delete submission"
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <h4 className="text-xl font-luxury-heading text-black mb-2">{submission.title}</h4>
-                        <p className="text-black/70 font-luxury-body mb-2">{submission.description}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-black">
-                          <div>
-                            <strong>Category:</strong> {submission.category}
-                          </div>
-                          <div>
-                            <strong>Location:</strong> {submission.location}
-                          </div>
-                          <div>
-                            <strong>Submitted by:</strong> {submission.submitterName}
-                          </div>
-                          <div>
-                            <strong>Contact:</strong> {submission.submitterEmail}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Review Form */}
-                      {reviewingSubmission === submission.id && (
+                          {/* Legacy Review Form (kept for backward compatibility, can be removed later) */}
+                          {reviewingSubmission === submission.id && submission.status === 'pending' && !selectedSubmissions.includes(submission.id) && (
                         <div className="mt-6 p-4 bg-gray-50 rounded-luxury">
                           <h5 className="text-lg font-luxury-heading text-black mb-4">Review Submission</h5>
 
@@ -1911,6 +2036,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                     </div>
                   ))}
                   
+                  {filteredSubmissions.length === 0 && submissions.length > 0 && (
+                    <div className="text-center py-8">
+                      <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-xl font-luxury-heading text-black mb-2">No Submissions Match Filters</h3>
+                      <p className="text-gray-600">Try adjusting your filters to see more results.</p>
+                    </div>
+                  )}
+                  
                   {submissions.length === 0 && (
                     <div className="text-center py-8">
                       <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -1920,6 +2053,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Analytics Tab */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-4">
+              <AnalyticsOverview refreshTrigger={Date.now()} />
             </div>
           )}
 

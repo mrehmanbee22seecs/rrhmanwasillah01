@@ -21,6 +21,7 @@ import { auth, googleProvider, facebookProvider, db } from '../config/firebase';
 // import { initializeUserProfile, logActivity as logUserActivity } from '../utils/firebaseInit';
 import { sendWelcomeEmail } from '../services/mailerSendEmailService';
 import { UserProfile, UserRole, OnboardingData, ActivityLog } from '../types/user';
+import { sendWelcomeNotification } from '../utils/notificationHelpers';
 
 // Legacy UserData interface for backward compatibility
 interface UserData extends UserProfile {
@@ -132,6 +133,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
         console.log('Writing new user document to Firestore...');
         await setDoc(userRef, userData);
         console.log('✅ User document created successfully');
+        
+        // Send welcome notification
+        try {
+          await sendWelcomeNotification(user.uid, displayName || 'User', userRole);
+        } catch (error) {
+          console.error('Error sending welcome notification:', error);
+          // Don't fail user creation if notification fails
+        }
         
         // Fetch the document again to get server-resolved timestamps
         const newUserSnap = await getDoc(userRef);

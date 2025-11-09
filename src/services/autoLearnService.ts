@@ -8,11 +8,12 @@
 import { tokenize } from '../utils/kbMatcher';
 
 // Configuration constants
-const SCRAPING_DELAY_MS = 100; // Delay between page scrapes
-const IFRAME_TIMEOUT_MS = 5000; // Timeout for iframe loading
-const AUTO_LEARN_INIT_DELAY_MS = 5000; // Delay before starting auto-learning
-const KB_REFRESH_THRESHOLD_DAYS = 7; // Refresh KB if older than this
+const SCRAPING_DELAY_MS = 500; // Increased delay to prevent overwhelming
+const IFRAME_TIMEOUT_MS = 3000; // Reduced timeout to fail faster
+const AUTO_LEARN_INIT_DELAY_MS = 10000; // Increased delay before starting (10s instead of 5s)
+const KB_REFRESH_THRESHOLD_DAYS = 30; // Refresh less frequently (30 days instead of 7)
 const MS_PER_DAY = 1000 * 60 * 60 * 24; // Milliseconds in a day
+const ENABLE_AUTO_LEARNING = false; // Disable auto-learning to prevent 404 errors and resource exhaustion
 import { 
   scrapeCurrentPage, 
   discoverSitePages, 
@@ -273,8 +274,15 @@ export function needsAutoLearning(): boolean {
 
 /**
  * Initialize auto-learning on app start (background)
+ * Currently disabled to prevent 404 errors and resource exhaustion
  */
 export function initAutoLearning(): void {
+  // Auto-learning disabled to prevent resource exhaustion
+  if (!ENABLE_AUTO_LEARNING) {
+    console.log('ℹ️ Auto-learning is disabled (prevents 404 errors and resource exhaustion)');
+    return;
+  }
+  
   // Check if learning is needed
   if (!needsAutoLearning()) {
     console.log('✅ KB is up to date, skipping auto-learning');

@@ -255,7 +255,7 @@ export function useChat(userId: string | null, chatId?: string) {
           let botResponseText: string;
           let botMeta: any = {};
           
-          // Set a timeout to prevent the bot from getting stuck
+          // Set a timeout to prevent the bot from getting stuck (reduced to 5s for faster responses)
           const responseTimeout = setTimeout(async () => {
             console.warn('⚠️ Bot response timeout, sending fallback');
             const lang = detectLang(filteredText);
@@ -272,7 +272,7 @@ export function useChat(userId: string | null, chatId?: string) {
             } catch (err) {
               console.error('Error sending timeout response:', err);
             }
-          }, 10000); // 10 second timeout
+          }, 5000); // Reduced from 10s to 5s for faster timeout
           
           try {
             // Enhancement 4: Check response cache first (instant for common queries)
@@ -293,7 +293,8 @@ export function useChat(userId: string | null, chatId?: string) {
             else {
               const fastMatchResult = matchWithTiming(filteredText, kbPages);
               
-              if (fastMatchResult.result && fastMatchResult.result.confidence > 0.4) {
+              // Reduced confidence threshold from 0.4 to 0.3 for faster, more responsive matches
+              if (fastMatchResult.result && fastMatchResult.result.confidence > 0.3) {
                 // Enhancement 5: Apply sentiment-aware enhancements
                 botResponseText = enhanceResponseBySentiment(
                   fastMatchResult.result.text,

@@ -3,6 +3,7 @@ import { getFunctions } from 'firebase/functions';
 import { getAuth, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging, isSupported, Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCAzJf4xhj8YHT6ArbmVdzkOpGKwFTHkCU",
@@ -36,6 +37,39 @@ export const storage = getStorage(app);
 
 // Cloud Functions (client)
 export const functions = getFunctions(app);
+
+// Initialize Firebase Cloud Messaging (only in browser, and if supported)
+export let messaging: Messaging | null = null;
+
+// Initialize messaging asynchronously
+export async function initializeMessaging(): Promise<Messaging | null> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return null;
+  }
+
+  if (messaging) {
+    return messaging;
+  }
+
+  try {
+    const supported = await isSupported();
+    if (supported) {
+      messaging = getMessaging(app);
+      return messaging;
+    }
+  } catch (error) {
+    console.warn('Firebase Cloud Messaging not supported:', error);
+  }
+
+  return null;
+}
+
+// Try to initialize messaging immediately if in browser
+if (typeof window !== 'undefined') {
+  initializeMessaging().catch(() => {
+    // Silently fail if messaging can't be initialized
+  });
+}
 
 export default app;
 
