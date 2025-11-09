@@ -682,9 +682,9 @@ const ProjectDetail = () => {
       {/* Project Details */}
       <section className="py-16 bg-cream-elegant">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-12">
+            <div className="space-y-12">
               {/* Overview */}
               <div className="luxury-card bg-cream-white p-10">
                 <h2 className="text-3xl font-luxury-heading text-black mb-6">Project Overview</h2>
