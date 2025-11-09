@@ -180,8 +180,17 @@ const defaultAboutImpactContent = {
   updatedAt: new Date()
 };
 
+// Global lock to prevent concurrent initialization
+let initializationInProgress = false;
+
 export const initializeDefaultContent = async () => {
   try {
+    // Check if initialization is already in progress
+    if (initializationInProgress) {
+      console.log('Content initialization already in progress. Skipping duplicate call.');
+      return;
+    }
+
     // Check if we already initialized in this session (prevents multiple writes)
     const sessionKey = 'wasilah_content_initialized';
     if (sessionStorage.getItem(sessionKey) === 'true') {
@@ -189,6 +198,8 @@ export const initializeDefaultContent = async () => {
       return;
     }
 
+    // Set lock
+    initializationInProgress = true;
     console.log('Initializing default content...');
 
     // Check if content already exists
@@ -313,25 +324,28 @@ export const initializeDefaultContent = async () => {
         updatedAt: new Date().toISOString()
       }));
 
-      // Execute all writes with small delays between batches to prevent exhaustion
-      const batchSize = 3; // Process 3 writes at a time
+      // Execute all writes with delays between batches to prevent exhaustion
+      const batchSize = 2; // Reduced to 2 writes at a time
       for (let i = 0; i < writes.length; i += batchSize) {
         const batch = writes.slice(i, i + batchSize);
         await Promise.all(batch);
-        // Small delay between batches to prevent overwhelming Firestore
+        // Longer delay between batches to prevent overwhelming Firestore
         if (i + batchSize < writes.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 200)); // Increased to 200ms
         }
       }
 
       console.log('All default content initialized successfully!');
       sessionStorage.setItem(sessionKey, 'true');
+      initializationInProgress = false;
     } else {
       console.log('Content already exists. Skipping initialization.');
       sessionStorage.setItem(sessionKey, 'true');
+      initializationInProgress = false;
     }
   } catch (error) {
     console.error('Error initializing default content:', error);
+    initializationInProgress = false; // Release lock on error
     // Don't throw error - allow app to continue even if content init fails
   }
 };
