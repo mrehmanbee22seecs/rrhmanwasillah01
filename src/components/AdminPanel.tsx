@@ -2033,6 +2033,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                           )}
                         </div>
                       )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                   

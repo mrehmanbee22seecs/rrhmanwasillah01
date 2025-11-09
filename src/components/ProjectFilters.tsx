@@ -198,7 +198,7 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
 
     onFilterChange(filtered);
     onCriteriaChange(criteria);
-  };
+  }, [projects, criteria, onFilterChange, onCriteriaChange]);
 
   const toggleCategory = (category: string) => {
     setCriteria(prev => ({
