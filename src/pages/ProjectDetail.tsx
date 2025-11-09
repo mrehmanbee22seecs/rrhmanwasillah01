@@ -508,16 +508,38 @@ const ProjectDetail = () => {
   const startDate = displayProject.startDate || '';
   const endDate = displayProject.endDate || '';
   const applicationDeadline = 'Open Applications';
+  
+  // Check if current user can edit this project (only for approved projects)
+  const canEdit = !!project && project.status === 'approved' && !!currentUser && (isAdmin || project.submittedBy === currentUser.uid);
+  
+  const handleEditClick = () => {
+    if (!project || !id) return;
+    // Navigate to create-submission with edit parameter
+    navigate(`/create-submission?type=project&edit=${id}`);
+  };
 
   return (
     <div className="py-12">
       {/* Header */}
       <section className="bg-cream-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link to="/projects" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark mb-8 font-luxury-semibold">
-            <ArrowLeft className="mr-2 w-5 h-5" />
-            Back to Projects
-          </Link>
+          <div className="flex items-center justify-between mb-8">
+            <Link to="/projects" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark font-luxury-semibold">
+              <ArrowLeft className="mr-2 w-5 h-5" />
+              Back to Projects
+            </Link>
+            {canEdit && (
+              <button
+                onClick={handleEditClick}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-luxury-semibold"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Project
+              </button>
+            )}
+          </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>

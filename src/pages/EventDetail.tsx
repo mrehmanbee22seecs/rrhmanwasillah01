@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Users, MapPin, Clock, CheckCircle, Send, AlertCircle, Star, Target } from 'lucide-react';
 import { sendEmail, formatEventRegistrationEmail, formatEventRegistrationConfirmationEmail } from '../utils/emailService';
 import { db } from '../config/firebase';
 import { doc, getDoc, addDoc, collection, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import { EventSubmission, ProjectSubmission } from '../types/submissions';
+import { useAuth } from '../contexts/AuthContext';
 
 const EventDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { currentUser, isAdmin } = useAuth();
   const [showRegistration, setShowRegistration] = useState(false);
   const [event, setEvent] = useState<EventSubmission | null>(null);
   const [loading, setLoading] = useState(true);
@@ -477,6 +480,15 @@ const EventDetail = () => {
   const attendees = isFromFirestore ? displayEvent.expectedAttendees : (staticEvent?.attendees || 0);
   const registrationDeadline = isFromFirestore ? displayEvent.registrationDeadline : (staticEvent?.registrationDeadline || 'Open');
   const cost = isFromFirestore ? displayEvent.cost : (staticEvent?.cost || 'Free');
+  
+  // Check if current user can edit this event (only for approved events)
+  const canEdit = !!event && event.status === 'approved' && !!currentUser && (isAdmin || event.submittedBy === currentUser.uid);
+  
+  const handleEditClick = () => {
+    if (!event || !id) return;
+    // Navigate to create-submission with edit parameter
+    navigate(`/create-submission?type=event&edit=${id}`);
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -503,10 +515,23 @@ const EventDetail = () => {
       {/* Header */}
       <section className="bg-cream-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link to="/events" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark mb-8 font-luxury-semibold">
-            <ArrowLeft className="mr-2 w-5 h-5" />
-            Back to Events
-          </Link>
+          <div className="flex items-center justify-between mb-8">
+            <Link to="/events" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark font-luxury-semibold">
+              <ArrowLeft className="mr-2 w-5 h-5" />
+              Back to Events
+            </Link>
+            {canEdit && (
+              <button
+                onClick={handleEditClick}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-luxury-semibold"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Event
+              </button>
+            )}
+          </div>
           {parentProject && (
             <div className="mb-6 text-black">
               <span className="text-black/70">Part of project: </span>
