@@ -76,12 +76,8 @@ const ChatWidget = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Center the modal when opened
-  useEffect(() => {
-    if (isOpen && modalRef.current) {
-      modalRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    }
-  }, [isOpen]);
+  // Removed scrollIntoView - causes buggy behavior
+  // Modal positioning is handled by fixed positioning with transform
 
   // Live countdown for rate limit unblocking
   useEffect(() => {

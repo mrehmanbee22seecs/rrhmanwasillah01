@@ -6,15 +6,8 @@ const DonationWidget = () => {
   const [suppressButton, setSuppressButton] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (isOpen && widgetRef.current) {
-      widgetRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'center'
-      });
-    }
-  }, [isOpen]);
+  // Removed scrollIntoView - causes buggy behavior
+  // Modal positioning is handled by fixed positioning with transform
 
   // Broadcast open/close to other widgets and listen for theirs
   useEffect(() => {

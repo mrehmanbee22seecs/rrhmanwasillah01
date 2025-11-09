@@ -508,16 +508,38 @@ const ProjectDetail = () => {
   const startDate = displayProject.startDate || '';
   const endDate = displayProject.endDate || '';
   const applicationDeadline = 'Open Applications';
+  
+  // Check if current user can edit this project (only for approved projects)
+  const canEdit = !!project && project.status === 'approved' && !!currentUser && (isAdmin || project.submittedBy === currentUser.uid);
+  
+  const handleEditClick = () => {
+    if (!project || !id) return;
+    // Navigate to create-submission with edit parameter
+    navigate(`/create-submission?type=project&edit=${id}`);
+  };
 
   return (
     <div className="py-12">
       {/* Header */}
       <section className="bg-cream-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link to="/projects" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark mb-8 font-luxury-semibold">
-            <ArrowLeft className="mr-2 w-5 h-5" />
-            Back to Projects
-          </Link>
+          <div className="flex items-center justify-between mb-8">
+            <Link to="/projects" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark font-luxury-semibold">
+              <ArrowLeft className="mr-2 w-5 h-5" />
+              Back to Projects
+            </Link>
+            {canEdit && (
+              <button
+                onClick={handleEditClick}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-luxury-semibold"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Project
+              </button>
+            )}
+          </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -660,9 +682,9 @@ const ProjectDetail = () => {
       {/* Project Details */}
       <section className="py-16 bg-cream-elegant">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-12">
+            <div className="space-y-12">
               {/* Overview */}
               <div className="luxury-card bg-cream-white p-10">
                 <h2 className="text-3xl font-luxury-heading text-black mb-6">Project Overview</h2>
@@ -720,6 +742,24 @@ const ProjectDetail = () => {
 
             {/* Sidebar */}
             <div className="space-y-8">
+              {/* Timeline - Always show if available */}
+              {schedule && (
+                <div className="luxury-card bg-cream-white p-8">
+                  <h3 className="text-2xl font-luxury-heading text-black mb-4">📅 Timeline</h3>
+                  <p className="text-black font-luxury-body">{schedule}</p>
+                </div>
+              )}
+
+              {/* Contact Information - Always show */}
+              <div className="luxury-card bg-vibrant-orange/10 p-8">
+                <h3 className="text-2xl font-luxury-heading text-black mb-4">📞 Contact Information</h3>
+                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
+                <p className="text-black font-luxury-body text-sm break-words">{contact}</p>
+                {displayProject.contactPhone && (
+                  <p className="text-black font-luxury-body text-sm mt-1">{displayProject.contactPhone}</p>
+                )}
+              </div>
+
               {/* Capacity & Skills */}
               {(
                 (typeof displayProject.capacity === 'number') ||
@@ -727,7 +767,7 @@ const ProjectDetail = () => {
                 (Array.isArray(displayProject.preferredSkills) && displayProject.preferredSkills.length > 0)
               ) && (
                 <div className="luxury-card bg-cream-white p-8">
-                  <h3 className="text-2xl font-luxury-heading text-black mb-4">Participation & Skills</h3>
+                  <h3 className="text-2xl font-luxury-heading text-black mb-4">🎯 Participation & Skills</h3>
                   <div className="space-y-3 text-black">
                     {typeof displayProject.capacity === 'number' && (
                       <div>
@@ -875,7 +915,7 @@ const ProjectDetail = () => {
               {/* Requirements */}
               {displayProject.requirements && displayProject.requirements.length > 0 && displayProject.requirements[0] !== '' && (
               <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-6">Requirements</h3>
+                <h3 className="text-2xl font-luxury-heading text-black mb-6">📋 Requirements</h3>
                 <ul className="space-y-3">
                   {displayProject.requirements.map((requirement, index) => (
                     <li key={index} className="flex items-start text-black font-luxury-body">
@@ -886,26 +926,6 @@ const ProjectDetail = () => {
                 </ul>
               </div>
               )}
-
-              {/* Schedule */}
-              {schedule && (
-              <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-4">Timeline</h3>
-                <p className="text-black font-luxury-body">{schedule}</p>
-              </div>
-              )}
-
-              {/* Contact */}
-              <div className="luxury-card bg-vibrant-orange/10 p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-4">Contact Information</h3>
-                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
-                <p className="text-black font-luxury-body text-sm">{contact}</p>
-                {displayProject.contactPhone && (
-                  <p className="text-black font-luxury-body text-sm">{displayProject.contactPhone}</p>
-                )}
-              </div>
-
-              {/* Single Apply Button (kept primary above) */}
             </div>
           </div>
         </div>

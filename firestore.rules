@@ -59,6 +59,14 @@ service cloud.firestore {
                   || isAdmin();
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.submittedBy || isAdmin());
+      
+      // Subcollection for project applications
+      match /applications/{applicationId} {
+        allow read: if isAuthenticated() && 
+          (request.auth.uid == get(/databases/$(database)/documents/project_submissions/$(submissionId)).data.submittedBy || isAdmin());
+        allow create: if true;
+        allow update, delete: if isAdmin();
+      }
     }
 
     match /event_submissions/{submissionId} {
@@ -86,6 +94,14 @@ service cloud.firestore {
         request.resource.data.projectId == '' ||
         canLinkEventToProject(request.resource.data.projectId)
       );
+      
+      // Subcollection for event registrations
+      match /registrations/{registrationId} {
+        allow read: if isAuthenticated() && 
+          (request.auth.uid == get(/databases/$(database)/documents/event_submissions/$(submissionId)).data.submittedBy || isAdmin());
+        allow create: if true;
+        allow update, delete: if isAdmin();
+      }
     }
 
     match /hero_content/{docId} { allow read: if true; allow write: if isAdmin(); }
@@ -150,6 +166,32 @@ service cloud.firestore {
         (request.auth.uid == resource.data.userId || isAdmin());
     }
 
+    // === USER TASKS COLLECTION (for dashboards) ===
+    match /user_tasks/{taskId} {
+      // Users can read their own tasks, admins can read all
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId || isAdmin());
+      // Users can create their own tasks
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      // Users can update/delete their own tasks, admins can update/delete any
+      allow update, delete: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // === USER NOTES COLLECTION (for dashboards) ===
+    match /user_notes/{noteId} {
+      // Users can read their own notes, admins can read all
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId || isAdmin());
+      // Users can create their own notes
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      // Users can update/delete their own notes, admins can update/delete any
+      allow update, delete: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
     // === APPLICATIONS, REGISTRATIONS, NEWSLETTER, EVENTS ===
     match /project_applications/{id} {
       allow create: if true;
@@ -180,6 +222,42 @@ service cloud.firestore {
     }
 
     // === EDIT REQUEST COLLECTIONS ===
+    // Project Edit Requests (for editing published projects)
+    match /project_edit_requests/{requestId} {
+      // Users can create edit requests for their own projects
+      allow create: if isAuthenticated() && 
+                       request.resource.data.requestedBy == request.auth.uid &&
+                       request.resource.data.status == 'pending';
+      
+      // Users can read their own edit requests, admins can read all
+      allow read: if isAuthenticated() && 
+                     (resource.data.requestedBy == request.auth.uid || isAdmin());
+      
+      // Only admins can update (approve/reject)
+      allow update: if isAdmin();
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // Event Edit Requests (for editing published events)
+    match /event_edit_requests/{requestId} {
+      // Users can create edit requests for their own events
+      allow create: if isAuthenticated() && 
+                       request.resource.data.requestedBy == request.auth.uid &&
+                       request.resource.data.status == 'pending';
+      
+      // Users can read their own edit requests, admins can read all
+      allow read: if isAuthenticated() && 
+                     (resource.data.requestedBy == request.auth.uid || isAdmin());
+      
+      // Only admins can update (approve/reject)
+      allow update: if isAdmin();
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
     // Project Application Edit Requests
     match /project_application_edit_requests/{requestId} {
       // Users can create edit requests for their own applications

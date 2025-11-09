@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Users, MapPin, Clock, CheckCircle, Send, AlertCircle, Star, Target } from 'lucide-react';
 import { sendEmail, formatEventRegistrationEmail, formatEventRegistrationConfirmationEmail } from '../utils/emailService';
 import { db } from '../config/firebase';
 import { doc, getDoc, addDoc, collection, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import { EventSubmission, ProjectSubmission } from '../types/submissions';
+import { useAuth } from '../contexts/AuthContext';
 
 const EventDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { currentUser, isAdmin } = useAuth();
   const [showRegistration, setShowRegistration] = useState(false);
   const [event, setEvent] = useState<EventSubmission | null>(null);
   const [loading, setLoading] = useState(true);
@@ -477,6 +480,15 @@ const EventDetail = () => {
   const attendees = isFromFirestore ? displayEvent.expectedAttendees : (staticEvent?.attendees || 0);
   const registrationDeadline = isFromFirestore ? displayEvent.registrationDeadline : (staticEvent?.registrationDeadline || 'Open');
   const cost = isFromFirestore ? displayEvent.cost : (staticEvent?.cost || 'Free');
+  
+  // Check if current user can edit this event (only for approved events)
+  const canEdit = !!event && event.status === 'approved' && !!currentUser && (isAdmin || event.submittedBy === currentUser.uid);
+  
+  const handleEditClick = () => {
+    if (!event || !id) return;
+    // Navigate to create-submission with edit parameter
+    navigate(`/create-submission?type=event&edit=${id}`);
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -503,10 +515,23 @@ const EventDetail = () => {
       {/* Header */}
       <section className="bg-cream-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link to="/events" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark mb-8 font-luxury-semibold">
-            <ArrowLeft className="mr-2 w-5 h-5" />
-            Back to Events
-          </Link>
+          <div className="flex items-center justify-between mb-8">
+            <Link to="/events" className="inline-flex items-center text-vibrant-orange hover:text-vibrant-orange-dark font-luxury-semibold">
+              <ArrowLeft className="mr-2 w-5 h-5" />
+              Back to Events
+            </Link>
+            {canEdit && (
+              <button
+                onClick={handleEditClick}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-luxury-semibold"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Event
+              </button>
+            )}
+          </div>
           {parentProject && (
             <div className="mb-6 text-black">
               <span className="text-black/70">Part of project: </span>
@@ -668,9 +693,9 @@ const EventDetail = () => {
       }
       <section className="py-16 bg-cream-elegant">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-12">
+            <div className="space-y-12">
               {/* Overview */}
               <div className="luxury-card bg-cream-white p-10">
                 <h2 className="text-3xl font-luxury-heading text-black mb-6">Event Overview</h2>
@@ -763,6 +788,46 @@ const EventDetail = () => {
 
             {/* Sidebar */}
             <div className="space-y-8">
+              {/* Event Details - Always show */}
+              <div className="luxury-card bg-cream-white p-8">
+                <h3 className="text-2xl font-luxury-heading text-black mb-6">📋 Event Details</h3>
+                <div className="space-y-4 text-black font-luxury-body">
+                  <div>
+                    <strong>Cost:</strong> {cost}
+                  </div>
+                  {staticEvent?.materials && (
+                    <div>
+                      <strong>Materials:</strong> {staticEvent.materials}
+                    </div>
+                  )}
+                  {staticEvent?.parking && (
+                    <div>
+                      <strong>Parking:</strong> {staticEvent.parking}
+                    </div>
+                  )}
+                  {staticEvent?.certification && (
+                    <div>
+                      <strong>Certification:</strong> {staticEvent.certification}
+                    </div>
+                  )}
+                  {staticEvent?.impact && (
+                    <div>
+                      <strong>Expected Impact:</strong> {staticEvent.impact}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact - Always show */}
+              <div className="luxury-card bg-vibrant-orange/10 p-8">
+                <h3 className="text-2xl font-luxury-heading text-black mb-4">📞 Contact Information</h3>
+                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
+                <p className="text-black font-luxury-body text-sm break-words">{contact}</p>
+                {displayEvent.contactPhone && (
+                  <p className="text-black font-luxury-body text-sm mt-1">{displayEvent.contactPhone}</p>
+                )}
+              </div>
+
               {/* Capacity & Services */}
               {(
                 (typeof displayEvent.capacity === 'number') ||
@@ -770,7 +835,7 @@ const EventDetail = () => {
                 (displayEvent.accessibilityInfo)
               ) && (
                 <div className="luxury-card bg-cream-white p-8">
-                  <h3 className="text-2xl font-luxury-heading text-black mb-4">Participation & Services</h3>
+                  <h3 className="text-2xl font-luxury-heading text-black mb-4">🎯 Participation & Services</h3>
                   <div className="space-y-3 text-black">
                     {typeof displayEvent.capacity === 'number' && (
                       <div>
@@ -859,7 +924,7 @@ const EventDetail = () => {
               {/* Requirements */}
               {displayEvent.requirements && displayEvent.requirements.length > 0 && displayEvent.requirements[0] !== '' && (
               <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-6">What to Bring</h3>
+                <h3 className="text-2xl font-luxury-heading text-black mb-6">📦 What to Bring</h3>
                 <ul className="space-y-3">
                   {displayEvent.requirements.map((requirement, index) => (
                     <li key={index} className="flex items-start text-black font-luxury-body">
@@ -870,48 +935,6 @@ const EventDetail = () => {
                 </ul>
               </div>
               )}
-
-              {/* Event Details */}
-              <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-6">Event Details</h3>
-                <div className="space-y-4 text-black font-luxury-body">
-                  <div>
-                    <strong>Cost:</strong> {cost}
-                  </div>
-                  {staticEvent?.materials && (
-                    <div>
-                      <strong>Materials:</strong> {staticEvent.materials}
-                    </div>
-                  )}
-                  {staticEvent?.parking && (
-                    <div>
-                      <strong>Parking:</strong> {staticEvent.parking}
-                    </div>
-                  )}
-                  {staticEvent?.certification && (
-                    <div>
-                      <strong>Certification:</strong> {staticEvent.certification}
-                    </div>
-                  )}
-                  {staticEvent?.impact && (
-                    <div>
-                      <strong>Expected Impact:</strong> {staticEvent.impact}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Contact */}
-              <div className="luxury-card bg-vibrant-orange/10 p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-4">Contact Information</h3>
-                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
-                <p className="text-black font-luxury-body text-sm">{contact}</p>
-                {displayEvent.contactPhone && (
-                  <p className="text-black font-luxury-body text-sm">{displayEvent.contactPhone}</p>
-                )}
-              </div>
-
-              {/* Single Register Button (kept primary above) */}
             </div>
           </div>
         </div>

@@ -21,16 +21,31 @@ const CreateSubmission = () => {
   const [submissionType, setSubmissionType] = useState<SubmissionType>('project');
   const [draftId, setDraftId] = useState<string | null>(null);
   const [isLoadingDraft, setIsLoadingDraft] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     const typeParam = searchParams.get('type');
     const draftParam = searchParams.get('draft');
+    const editParam = searchParams.get('edit');
     const prefillProjectId = searchParams.get('prefillProjectId');
     const prefillAffiliationName = searchParams.get('prefillAffiliationName');
     const prefillAffiliationType = searchParams.get('prefillAffiliationType');
 
     if (typeParam === 'event' || typeParam === 'project') {
       setSubmissionType(typeParam as SubmissionType);
+    }
+
+    // Handle edit mode
+    if (editParam) {
+      setEditId(editParam);
+      setIsEditMode(true);
+      loadExistingSubmission(editParam, typeParam as SubmissionType);
+    }
+    // Handle draft mode
+    else if (draftParam) {
+      setDraftId(draftParam);
+      loadDraft(draftParam, typeParam as SubmissionType);
     }
 
     if (prefillProjectId) {
@@ -65,11 +80,6 @@ const CreateSubmission = () => {
           console.warn('Project prefill validation failed:', e);
         }
       })();
-    }
-
-    if (draftParam) {
-      setDraftId(draftParam);
-      loadDraft(draftParam, typeParam as SubmissionType);
     }
   }, [searchParams]);
 
@@ -166,6 +176,125 @@ const CreateSubmission = () => {
 
   const projectCategories = ['Education', 'Healthcare', 'Environment', 'Technology', 'Community Development', 'Youth Programs'];
   const eventCategories = ['Community', 'Health', 'Education', 'Training', 'Environment', 'Fundraising'];
+
+  const loadExistingSubmission = async (id: string, type: SubmissionType) => {
+    setIsLoadingDraft(true);
+    try {
+      const collectionName = type === 'project' ? 'project_submissions' : 'event_submissions';
+      const docRef = doc(db, collectionName, id);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Check if user has permission to edit
+        if (!isAdmin && data.submittedBy !== currentUser?.uid) {
+          alert('You do not have permission to edit this submission.');
+          navigate('/dashboard');
+          return;
+        }
+        
+        // Check if submission is approved
+        if (data.status !== 'approved') {
+          alert('Only approved submissions can be edited. Please wait for admin approval first.');
+          navigate('/dashboard');
+          return;
+        }
+
+        // Load the data (same as draft loading)
+        if (type === 'project') {
+          setProjectData({
+            title: data.title || '',
+            shortSummary: data.shortSummary || '',
+            category: data.category || 'Education',
+            image: data.image || '',
+            location: data.location || '',
+            address: data.address || '',
+            latitude: data.latitude,
+            longitude: data.longitude,
+            expectedVolunteers: data.expectedVolunteers || 10,
+            peopleImpacted: data.peopleImpacted || undefined,
+            startDate: data.startDate || '',
+            endDate: data.endDate || '',
+            description: data.description || '',
+            targetAudience: data.targetAudience || '',
+            durationEstimate: data.durationEstimate || '',
+            durationHours: data.durationHours,
+            requirements: data.requirements?.length > 0 ? data.requirements : [''],
+            objectives: data.objectives?.length > 0 ? data.objectives : [''],
+            activities: data.activities?.length > 0 ? data.activities : [''],
+            contactEmail: data.contactEmail || userData?.email || '',
+            contactPhone: data.contactPhone || '',
+            budget: data.budget || '',
+            fundingSource: data.fundingSource || '',
+            internalNotes: data.internalNotes || '',
+            timeline: data.timeline || '',
+            notes: data.notes || '',
+            checklist: data.checklist || [],
+            reminders: data.reminders || [],
+            heads: data.heads || [],
+            affiliation: data.affiliation || { type: '', customType: '', name: '' },
+            perks: data.perks?.length > 0 ? data.perks : [''],
+            materialsList: data.materialsList?.length > 0 ? data.materialsList : [''],
+            safetyNotes: data.safetyNotes || '',
+            accessibilityInfo: data.accessibilityInfo || '',
+            requiredSkills: data.requiredSkills?.length > 0 ? data.requiredSkills : [''],
+            preferredSkills: data.preferredSkills?.length > 0 ? data.preferredSkills : [''],
+            sponsors: data.sponsors?.length > 0 ? data.sponsors : [''],
+            donationLink: data.donationLink || '',
+            faq: data.faq || []
+          });
+        } else {
+          setEventData({
+            title: data.title || '',
+            shortSummary: data.shortSummary || '',
+            category: data.category || 'Community',
+            image: data.image || '',
+            date: data.date || '',
+            time: data.time || '',
+            location: data.location || '',
+            address: data.address || '',
+            latitude: data.latitude,
+            longitude: data.longitude,
+            expectedAttendees: data.expectedAttendees || 50,
+            peopleImpacted: data.peopleImpacted || undefined,
+            cost: data.cost || 'Free',
+            registrationDeadline: data.registrationDeadline || '',
+            description: data.description || '',
+            targetAudience: data.targetAudience || '',
+            durationEstimate: data.durationEstimate || '',
+            durationHours: data.durationHours,
+            requirements: data.requirements?.length > 0 ? data.requirements : [''],
+            agenda: data.agenda?.length > 0 ? data.agenda : [''],
+            contactEmail: data.contactEmail || userData?.email || '',
+            contactPhone: data.contactPhone || '',
+            notes: data.notes || '',
+            checklist: data.checklist || [],
+            reminders: data.reminders || [],
+            heads: data.heads || [],
+            projectId: data.projectId || '',
+            affiliation: data.affiliation || { type: '', customType: '', name: '' },
+            servicesIncluded: data.servicesIncluded?.length > 0 ? data.servicesIncluded : [''],
+            materialsList: data.materialsList?.length > 0 ? data.materialsList : [''],
+            parkingInfo: data.parkingInfo || '',
+            accessibilityInfo: data.accessibilityInfo || '',
+            childcareAvailable: data.childcareAvailable || false,
+            certifications: data.certifications?.length > 0 ? data.certifications : [''],
+            partners: data.partners?.length > 0 ? data.partners : [''],
+            faq: data.faq || []
+          });
+        }
+      } else {
+        alert('Submission not found.');
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('Error loading submission for edit:', error);
+      alert('Failed to load submission for editing.');
+    } finally {
+      setIsLoadingDraft(false);
+    }
+  };
 
   const loadDraft = async (id: string, type: SubmissionType) => {
     setIsLoadingDraft(true);
@@ -330,11 +459,139 @@ const CreateSubmission = () => {
     return requiredFields.every(field => data[field as keyof typeof data]);
   };
 
+  const handleEditSubmission = async (status: 'draft' | 'pending') => {
+    if (!currentUser || !userData || !editId) return;
+
+    try {
+      const collectionName = submissionType === 'project' ? 'project_submissions' : 'event_submissions';
+      const editRequestCollection = submissionType === 'project' ? 'project_edit_requests' : 'event_edit_requests';
+      
+      // Prepare the edited data
+      let editedData: any;
+      if (submissionType === 'project') {
+        editedData = {
+          title: projectData.title,
+          shortSummary: projectData.shortSummary,
+          category: projectData.category,
+          image: projectData.image,
+          location: projectData.location,
+          address: projectData.address,
+          latitude: projectData.latitude,
+          longitude: projectData.longitude,
+          expectedVolunteers: projectData.expectedVolunteers,
+          peopleImpacted: projectData.peopleImpacted ?? null,
+          startDate: projectData.startDate,
+          endDate: projectData.endDate,
+          description: projectData.description,
+          targetAudience: projectData.targetAudience,
+          durationEstimate: projectData.durationEstimate,
+          durationHours: projectData.durationHours,
+          requirements: projectData.requirements.filter(r => r.trim() !== ''),
+          objectives: projectData.objectives.filter(o => o.trim() !== ''),
+          activities: projectData.activities.filter(a => a.trim() !== ''),
+          contactEmail: projectData.contactEmail,
+          contactPhone: projectData.contactPhone,
+          budget: projectData.budget,
+          fundingSource: projectData.fundingSource,
+          internalNotes: projectData.internalNotes,
+          timeline: projectData.timeline,
+          notes: projectData.notes,
+          heads: projectData.heads,
+          affiliation: projectData.affiliation,
+          perks: projectData.perks.filter(p => p.trim() !== ''),
+          materialsList: projectData.materialsList.filter(m => m.trim() !== ''),
+          safetyNotes: projectData.safetyNotes,
+          accessibilityInfo: projectData.accessibilityInfo,
+          requiredSkills: projectData.requiredSkills.filter(s => s.trim() !== ''),
+          preferredSkills: projectData.preferredSkills.filter(s => s.trim() !== ''),
+          sponsors: projectData.sponsors.filter(s => s.trim() !== ''),
+          donationLink: projectData.donationLink,
+          faq: projectData.faq
+        };
+      } else {
+        editedData = {
+          title: eventData.title,
+          shortSummary: eventData.shortSummary,
+          category: eventData.category,
+          image: eventData.image,
+          date: eventData.date,
+          time: eventData.time,
+          location: eventData.location,
+          address: eventData.address,
+          latitude: eventData.latitude,
+          longitude: eventData.longitude,
+          expectedAttendees: eventData.expectedAttendees,
+          peopleImpacted: eventData.peopleImpacted ?? null,
+          cost: eventData.cost,
+          registrationDeadline: eventData.registrationDeadline,
+          description: eventData.description,
+          targetAudience: eventData.targetAudience,
+          durationEstimate: eventData.durationEstimate,
+          durationHours: eventData.durationHours,
+          requirements: eventData.requirements.filter(r => r.trim() !== ''),
+          agenda: eventData.agenda.filter(a => a.trim() !== ''),
+          contactEmail: eventData.contactEmail,
+          contactPhone: eventData.contactPhone,
+          notes: eventData.notes,
+          heads: eventData.heads,
+          projectId: eventData.projectId,
+          affiliation: eventData.affiliation,
+          servicesIncluded: eventData.servicesIncluded.filter(s => s.trim() !== ''),
+          materialsList: eventData.materialsList.filter(m => m.trim() !== ''),
+          parkingInfo: eventData.parkingInfo,
+          accessibilityInfo: eventData.accessibilityInfo,
+          childcareAvailable: eventData.childcareAvailable,
+          certifications: eventData.certifications.filter(c => c.trim() !== ''),
+          partners: eventData.partners.filter(p => p.trim() !== ''),
+          faq: eventData.faq
+        };
+      }
+
+      // If admin, apply changes immediately
+      if (isAdmin) {
+        await updateDoc(doc(db, collectionName, editId), {
+          ...editedData,
+          lastEditedAt: serverTimestamp(),
+          lastEditedBy: currentUser.uid
+        });
+        
+        alert(`${submissionType === 'project' ? 'Project' : 'Event'} updated successfully!`);
+        navigate(submissionType === 'project' ? `/projects/${editId}` : `/events/${editId}`);
+      } else {
+        // For regular users, create an edit request
+        await addDoc(collection(db, editRequestCollection), {
+          submissionId: editId,
+          submissionType,
+          editedData,
+          requestedBy: currentUser.uid,
+          requestedByName: userData.displayName || 'Unknown User',
+          requestedByEmail: userData.email || '',
+          status: 'pending',
+          requestedAt: serverTimestamp()
+        });
+        
+        alert(`Edit request submitted! Your changes will be live once an admin approves them.`);
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('Error submitting edit:', error);
+      alert('Failed to submit edit. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (status: 'draft' | 'pending') => {
     if (!currentUser || !userData) return;
 
     setLoading(true);
     try {
+      // Handle edit mode differently
+      if (isEditMode && editId) {
+        await handleEditSubmission(status);
+        return;
+      }
+
       const finalStatus = isAdmin && status === 'pending' ? 'approved' : status;
       let collectionName: string;
       let insertData: any;
@@ -609,7 +866,7 @@ const CreateSubmission = () => {
           </button>
 
           <h1 className="text-4xl font-luxury-display text-black mb-4">
-            {draftId ? 'Edit' : 'Create New'} {submissionType === 'project' ? 'Project' : 'Event'}
+            {isEditMode ? 'Edit' : draftId ? 'Edit' : 'Create New'} {submissionType === 'project' ? 'Project' : 'Event'}
           </h1>
           <p className="text-xl text-black font-luxury-body">
             {draftId ? 'Continue editing your draft and submit when ready.' : 'Submit your ' + submissionType + ' idea for review and approval by our team.'}
@@ -1545,7 +1802,7 @@ const CreateSubmission = () => {
                 className="flex-1 btn-luxury-primary py-3 px-6 flex items-center justify-center disabled:opacity-50"
               >
                 <Send className="w-5 h-5 mr-2" />
-                {loading ? 'Submitting...' : 'Submit for Review'}
+                {loading ? (isEditMode ? 'Updating...' : 'Submitting...') : (isEditMode ? (isAdmin ? 'Update' : 'Submit Edit Request') : 'Submit for Review')}
               </button>
             </div>
           </form>
