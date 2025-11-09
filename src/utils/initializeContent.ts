@@ -115,8 +115,80 @@ const defaultCtaContent = {
   updatedAt: new Date()
 };
 
+// Header content
+const defaultHeaderContent = {
+  logoText: 'Wasilah',
+  arabicName: 'وسیلہ',
+  navigation: [
+    { label: 'Home', path: '/' },
+    { label: 'About', path: '/about' },
+    { label: 'Projects', path: '/projects' },
+    { label: 'Events', path: '/events' },
+    { label: 'Volunteer', path: '/volunteer' },
+    { label: 'Contact', path: '/contact' }
+  ],
+  updatedAt: new Date()
+};
+
+// Footer content
+const defaultFooterContent = {
+  description: 'Empowering communities through collaborative service and meaningful action.',
+  copyright: '© 2024 Wasilah. All rights reserved.',
+  socialLinks: {
+    facebook: '#',
+    twitter: '#',
+    instagram: '#',
+    linkedin: '#'
+  },
+  quickLinks: [
+    { label: 'About Us', path: '/about' },
+    { label: 'Projects', path: '/projects' },
+    { label: 'Events', path: '/events' },
+    { label: 'Contact', path: '/contact' }
+  ],
+  updatedAt: new Date()
+};
+
+// About page content
+const defaultAboutHeaderContent = {
+  title: 'About Wasilah',
+  subtitle: 'Building bridges, transforming communities',
+  updatedAt: new Date()
+};
+
+const defaultAboutMissionContent = {
+  title: 'Our Mission',
+  description: 'To empower communities through collaborative service, education, and sustainable development initiatives that create lasting positive change.',
+  updatedAt: new Date()
+};
+
+const defaultAboutVisionContent = {
+  title: 'Our Vision',
+  description: 'A world where every community has the resources, support, and opportunities needed to thrive and build a better future together.',
+  updatedAt: new Date()
+};
+
+const defaultAboutImpactContent = {
+  title: 'Our Impact',
+  description: 'Through dedication and collective action, we have made a meaningful difference in communities across the region.',
+  stats: [
+    { number: '5000+', label: 'Volunteers' },
+    { number: '120+', label: 'Projects' },
+    { number: '50+', label: 'Communities' },
+    { number: '25K+', label: 'Lives Impacted' }
+  ],
+  updatedAt: new Date()
+};
+
 export const initializeDefaultContent = async () => {
   try {
+    // Check if we already initialized in this session (prevents multiple writes)
+    const sessionKey = 'wasilah_content_initialized';
+    if (sessionStorage.getItem(sessionKey) === 'true') {
+      console.log('Content already initialized in this session. Skipping.');
+      return;
+    }
+
     console.log('Initializing default content...');
 
     // Check if content already exists
@@ -124,78 +196,142 @@ export const initializeDefaultContent = async () => {
     const contentSnapshot = await getDocs(contentRef);
 
     if (contentSnapshot.empty) {
+      // Batch writes to reduce write operations
+      const writes: Promise<void>[] = [];
+      
+      // Initialize Header Content
+      writes.push(setDoc(doc(db, 'content', 'header_content_main'), {
+        section: 'header_content',
+        slug: 'main',
+        data: defaultHeaderContent,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      // Initialize Footer Content
+      writes.push(setDoc(doc(db, 'content', 'footer_content_main'), {
+        section: 'footer_content',
+        slug: 'main',
+        data: defaultFooterContent,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+      
       // Initialize Hero Content
-      await setDoc(doc(db, 'content', 'hero_content_main'), {
+      writes.push(setDoc(doc(db, 'content', 'hero_content_main'), {
         section: 'hero_content',
         slug: 'main',
         data: defaultHeroContent,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
-      console.log('Hero content initialized');
+      }));
 
       // Initialize About Content
-      await setDoc(doc(db, 'content', 'about_content_main'), {
+      writes.push(setDoc(doc(db, 'content', 'about_content_main'), {
         section: 'about_content',
         slug: 'main',
         data: defaultAboutContent,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
-      console.log('About content initialized');
+      }));
+
+      // Initialize About Page Header
+      writes.push(setDoc(doc(db, 'content', 'about_header_main'), {
+        section: 'about_header',
+        slug: 'main',
+        data: defaultAboutHeaderContent,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      // Initialize About Page Mission
+      writes.push(setDoc(doc(db, 'content', 'about_mission_main'), {
+        section: 'about_mission',
+        slug: 'main',
+        data: defaultAboutMissionContent,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      // Initialize About Page Vision
+      writes.push(setDoc(doc(db, 'content', 'about_vision_main'), {
+        section: 'about_vision',
+        slug: 'main',
+        data: defaultAboutVisionContent,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      // Initialize About Page Impact
+      writes.push(setDoc(doc(db, 'content', 'about_impact_main'), {
+        section: 'about_impact',
+        slug: 'main',
+        data: defaultAboutImpactContent,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
 
       // Initialize Impact Content
-      await setDoc(doc(db, 'content', 'impact_content_main'), {
+      writes.push(setDoc(doc(db, 'content', 'impact_content_main'), {
         section: 'impact_content',
         slug: 'main',
         data: defaultImpactContent,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
-      console.log('Impact content initialized');
+      }));
 
       // Initialize Programs
       for (let i = 0; i < defaultPrograms.length; i++) {
         const program = defaultPrograms[i];
-        await setDoc(doc(db, 'content', `programs_item_${Date.now()}_${i}`), {
+        writes.push(setDoc(doc(db, 'content', `programs_item_${Date.now()}_${i}`), {
           section: 'programs',
           slug: `item_${Date.now()}_${i}`,
           data: program,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        });
+        }));
       }
-      console.log('Programs initialized');
 
       // Initialize Testimonials
       for (let i = 0; i < defaultTestimonials.length; i++) {
         const testimonial = defaultTestimonials[i];
-        await setDoc(doc(db, 'content', `testimonials_item_${Date.now()}_${i}`), {
+        writes.push(setDoc(doc(db, 'content', `testimonials_item_${Date.now()}_${i}`), {
           section: 'testimonials',
           slug: `item_${Date.now()}_${i}`,
           data: testimonial,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        });
+        }));
       }
-      console.log('Testimonials initialized');
 
       // Initialize CTA Content
-      await setDoc(doc(db, 'content', 'cta_content_main'), {
+      writes.push(setDoc(doc(db, 'content', 'cta_content_main'), {
         section: 'cta_content',
         slug: 'main',
         data: defaultCtaContent,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
-      console.log('CTA content initialized');
+      }));
+
+      // Execute all writes with small delays between batches to prevent exhaustion
+      const batchSize = 3; // Process 3 writes at a time
+      for (let i = 0; i < writes.length; i += batchSize) {
+        const batch = writes.slice(i, i + batchSize);
+        await Promise.all(batch);
+        // Small delay between batches to prevent overwhelming Firestore
+        if (i + batchSize < writes.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
 
       console.log('All default content initialized successfully!');
+      sessionStorage.setItem(sessionKey, 'true');
     } else {
       console.log('Content already exists. Skipping initialization.');
+      sessionStorage.setItem(sessionKey, 'true');
     }
   } catch (error) {
     console.error('Error initializing default content:', error);
-    throw error;
+    // Don't throw error - allow app to continue even if content init fails
   }
 };

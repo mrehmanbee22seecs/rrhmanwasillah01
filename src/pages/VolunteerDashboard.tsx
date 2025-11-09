@@ -43,38 +43,57 @@ const VolunteerDashboard = () => {
   const setupRealtimeListeners = () => {
     if (!currentUser) return;
 
-    // Listen to tasks
-    const tasksQuery = query(
-      collection(db, 'user_tasks'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribeTasks = onSnapshot(tasksQuery, (snapshot) => {
-      const fetchedTasks: Task[] = [];
-      snapshot.forEach((doc) => {
-        fetchedTasks.push({ id: doc.id, ...doc.data() } as Task);
-      });
-      setTasks(fetchedTasks);
-    });
+    try {
+      // Listen to tasks with error handling
+      const tasksQuery = query(
+        collection(db, 'user_tasks'),
+        where('userId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      const unsubscribeTasks = onSnapshot(
+        tasksQuery, 
+        (snapshot) => {
+          const fetchedTasks: Task[] = [];
+          snapshot.forEach((doc) => {
+            fetchedTasks.push({ id: doc.id, ...doc.data() } as Task);
+          });
+          setTasks(fetchedTasks);
+        },
+        (error) => {
+          console.error('Error listening to tasks:', error);
+          // Silently fail - don't crash the app
+        }
+      );
 
-    // Listen to notes
-    const notesQuery = query(
-      collection(db, 'user_notes'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribeNotes = onSnapshot(notesQuery, (snapshot) => {
-      const fetchedNotes: Note[] = [];
-      snapshot.forEach((doc) => {
-        fetchedNotes.push({ id: doc.id, ...doc.data() } as Note);
-      });
-      setNotes(fetchedNotes);
-    });
+      // Listen to notes with error handling
+      const notesQuery = query(
+        collection(db, 'user_notes'),
+        where('userId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      const unsubscribeNotes = onSnapshot(
+        notesQuery, 
+        (snapshot) => {
+          const fetchedNotes: Note[] = [];
+          snapshot.forEach((doc) => {
+            fetchedNotes.push({ id: doc.id, ...doc.data() } as Note);
+          });
+          setNotes(fetchedNotes);
+        },
+        (error) => {
+          console.error('Error listening to notes:', error);
+          // Silently fail - don't crash the app
+        }
+      );
 
-    return () => {
-      unsubscribeTasks();
-      unsubscribeNotes();
-    };
+      return () => {
+        unsubscribeTasks();
+        unsubscribeNotes();
+      };
+    } catch (error) {
+      console.error('Error setting up real-time listeners:', error);
+      return () => {}; // Return empty cleanup function
+    }
   };
 
   const fetchDashboardData = async () => {

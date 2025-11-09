@@ -43,47 +43,66 @@ const NGODashboard = () => {
   const setupRealtimeListeners = () => {
     if (!currentUser) return;
 
-    // Listen to user's projects
-    const projectsQuery = query(
-      collection(db, 'project_submissions'),
-      where('submittedBy', '==', currentUser.uid),
-      orderBy('submittedAt', 'desc')
-    );
-    const unsubscribeProjects = onSnapshot(projectsQuery, (snapshot) => {
-      const projects: ProjectSubmission[] = [];
-      snapshot.forEach((doc) => {
-        projects.push({ id: doc.id, ...doc.data() } as ProjectSubmission);
-      });
-      setMyProjects(projects);
-      
-      // Update stats
-      const active = projects.filter(p => p.status === 'approved' && p.isVisible).length;
-      setStats(prev => ({
-        ...prev,
-        totalProjects: projects.length,
-        activeProjects: active
-      }));
-    });
+    try {
+      // Listen to user's projects with error handling
+      const projectsQuery = query(
+        collection(db, 'project_submissions'),
+        where('submittedBy', '==', currentUser.uid),
+        orderBy('submittedAt', 'desc')
+      );
+      const unsubscribeProjects = onSnapshot(
+        projectsQuery, 
+        (snapshot) => {
+          const projects: ProjectSubmission[] = [];
+          snapshot.forEach((doc) => {
+            projects.push({ id: doc.id, ...doc.data() } as ProjectSubmission);
+          });
+          setMyProjects(projects);
+          
+          // Update stats
+          const active = projects.filter(p => p.status === 'approved' && p.isVisible).length;
+          setStats(prev => ({
+            ...prev,
+            totalProjects: projects.length,
+            activeProjects: active
+          }));
+        },
+        (error) => {
+          console.error('Error listening to projects:', error);
+          // Silently fail - don't crash the app
+        }
+      );
 
-    // Listen to user's events
-    const eventsQuery = query(
-      collection(db, 'event_submissions'),
-      where('submittedBy', '==', currentUser.uid),
-      orderBy('submittedAt', 'desc')
-    );
-    const unsubscribeEvents = onSnapshot(eventsQuery, (snapshot) => {
-      const events: EventSubmission[] = [];
-      snapshot.forEach((doc) => {
-        events.push({ id: doc.id, ...doc.data() } as EventSubmission);
-      });
-      setMyEvents(events);
-      setStats(prev => ({ ...prev, totalEvents: events.length }));
-    });
+      // Listen to user's events with error handling
+      const eventsQuery = query(
+        collection(db, 'event_submissions'),
+        where('submittedBy', '==', currentUser.uid),
+        orderBy('submittedAt', 'desc')
+      );
+      const unsubscribeEvents = onSnapshot(
+        eventsQuery, 
+        (snapshot) => {
+          const events: EventSubmission[] = [];
+          snapshot.forEach((doc) => {
+            events.push({ id: doc.id, ...doc.data() } as EventSubmission);
+          });
+          setMyEvents(events);
+          setStats(prev => ({ ...prev, totalEvents: events.length }));
+        },
+        (error) => {
+          console.error('Error listening to events:', error);
+          // Silently fail - don't crash the app
+        }
+      );
 
-    return () => {
-      unsubscribeProjects();
-      unsubscribeEvents();
-    };
+      return () => {
+        unsubscribeProjects();
+        unsubscribeEvents();
+      };
+    } catch (error) {
+      console.error('Error setting up real-time listeners:', error);
+      return () => {}; // Return empty cleanup function
+    }
   };
 
   const fetchDashboardData = async () => {
