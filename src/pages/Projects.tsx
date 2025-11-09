@@ -29,6 +29,13 @@ const Projects = () => {
     fetchApprovedProjects();
   }, []);
 
+  // Initialize filteredProjects when approvedProjects changes
+  useEffect(() => {
+    if (approvedProjects.length > 0 && filteredProjects.length === 0) {
+      setFilteredProjects(approvedProjects);
+    }
+  }, [approvedProjects, filteredProjects.length]);
+
   useEffect(() => {
     // Update displayed projects based on pagination mode
     if (paginationMode === 'pagination') {
@@ -212,13 +219,13 @@ Or create the index in Firebase Console.
   }, [lastVisible, loadingMore, hasMore]);
 
   // Handle filter changes
-  const handleFilterChange = useCallback((_criteria: ProjectFilterCriteria) => {
-    setCurrentPage(1); // Reset to first page on filter change
+  const handleFilterChange = useCallback((filtered: ProjectSubmission[]) => {
+    setFilteredProjects(filtered);
+    setCurrentPage(1);
   }, []);
 
-  const handleProjectsFiltered = useCallback((filtered: ProjectSubmission[]) => {
-    setFilteredProjects(filtered);
-    setCurrentPage(1); // Reset to first page
+  const handleCriteriaChange = useCallback((criteria: ProjectFilterCriteria) => {
+    setCurrentPage(1); // Reset to first page on filter change
   }, []);
 
   // Get available options for filters
@@ -376,7 +383,7 @@ Or create the index in Firebase Console.
           <ProjectFilters
             projects={approvedProjects}
             onFilterChange={handleFilterChange}
-            onProjectsFiltered={handleProjectsFiltered}
+            onCriteriaChange={handleCriteriaChange}
             availableCategories={availableCategories}
             availableLocations={availableLocations}
             availableSkills={availableSkills}
