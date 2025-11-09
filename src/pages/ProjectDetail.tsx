@@ -742,6 +742,24 @@ const ProjectDetail = () => {
 
             {/* Sidebar */}
             <div className="space-y-8">
+              {/* Timeline - Always show if available */}
+              {schedule && (
+                <div className="luxury-card bg-cream-white p-8">
+                  <h3 className="text-2xl font-luxury-heading text-black mb-4">📅 Timeline</h3>
+                  <p className="text-black font-luxury-body">{schedule}</p>
+                </div>
+              )}
+
+              {/* Contact Information - Always show */}
+              <div className="luxury-card bg-vibrant-orange/10 p-8">
+                <h3 className="text-2xl font-luxury-heading text-black mb-4">📞 Contact Information</h3>
+                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
+                <p className="text-black font-luxury-body text-sm break-words">{contact}</p>
+                {displayProject.contactPhone && (
+                  <p className="text-black font-luxury-body text-sm mt-1">{displayProject.contactPhone}</p>
+                )}
+              </div>
+
               {/* Capacity & Skills */}
               {(
                 (typeof displayProject.capacity === 'number') ||
@@ -749,7 +767,7 @@ const ProjectDetail = () => {
                 (Array.isArray(displayProject.preferredSkills) && displayProject.preferredSkills.length > 0)
               ) && (
                 <div className="luxury-card bg-cream-white p-8">
-                  <h3 className="text-2xl font-luxury-heading text-black mb-4">Participation & Skills</h3>
+                  <h3 className="text-2xl font-luxury-heading text-black mb-4">🎯 Participation & Skills</h3>
                   <div className="space-y-3 text-black">
                     {typeof displayProject.capacity === 'number' && (
                       <div>
@@ -897,7 +915,7 @@ const ProjectDetail = () => {
               {/* Requirements */}
               {displayProject.requirements && displayProject.requirements.length > 0 && displayProject.requirements[0] !== '' && (
               <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-6">Requirements</h3>
+                <h3 className="text-2xl font-luxury-heading text-black mb-6">📋 Requirements</h3>
                 <ul className="space-y-3">
                   {displayProject.requirements.map((requirement, index) => (
                     <li key={index} className="flex items-start text-black font-luxury-body">
@@ -908,26 +926,6 @@ const ProjectDetail = () => {
                 </ul>
               </div>
               )}
-
-              {/* Schedule */}
-              {schedule && (
-              <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-4">Timeline</h3>
-                <p className="text-black font-luxury-body">{schedule}</p>
-              </div>
-              )}
-
-              {/* Contact */}
-              <div className="luxury-card bg-vibrant-orange/10 p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-4">Contact Information</h3>
-                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
-                <p className="text-black font-luxury-body text-sm">{contact}</p>
-                {displayProject.contactPhone && (
-                  <p className="text-black font-luxury-body text-sm">{displayProject.contactPhone}</p>
-                )}
-              </div>
-
-              {/* Single Apply Button (kept primary above) */}
             </div>
           </div>
         </div>

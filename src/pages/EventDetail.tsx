@@ -788,6 +788,46 @@ const EventDetail = () => {
 
             {/* Sidebar */}
             <div className="space-y-8">
+              {/* Event Details - Always show */}
+              <div className="luxury-card bg-cream-white p-8">
+                <h3 className="text-2xl font-luxury-heading text-black mb-6">📋 Event Details</h3>
+                <div className="space-y-4 text-black font-luxury-body">
+                  <div>
+                    <strong>Cost:</strong> {cost}
+                  </div>
+                  {staticEvent?.materials && (
+                    <div>
+                      <strong>Materials:</strong> {staticEvent.materials}
+                    </div>
+                  )}
+                  {staticEvent?.parking && (
+                    <div>
+                      <strong>Parking:</strong> {staticEvent.parking}
+                    </div>
+                  )}
+                  {staticEvent?.certification && (
+                    <div>
+                      <strong>Certification:</strong> {staticEvent.certification}
+                    </div>
+                  )}
+                  {staticEvent?.impact && (
+                    <div>
+                      <strong>Expected Impact:</strong> {staticEvent.impact}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact - Always show */}
+              <div className="luxury-card bg-vibrant-orange/10 p-8">
+                <h3 className="text-2xl font-luxury-heading text-black mb-4">📞 Contact Information</h3>
+                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
+                <p className="text-black font-luxury-body text-sm break-words">{contact}</p>
+                {displayEvent.contactPhone && (
+                  <p className="text-black font-luxury-body text-sm mt-1">{displayEvent.contactPhone}</p>
+                )}
+              </div>
+
               {/* Capacity & Services */}
               {(
                 (typeof displayEvent.capacity === 'number') ||
@@ -795,7 +835,7 @@ const EventDetail = () => {
                 (displayEvent.accessibilityInfo)
               ) && (
                 <div className="luxury-card bg-cream-white p-8">
-                  <h3 className="text-2xl font-luxury-heading text-black mb-4">Participation & Services</h3>
+                  <h3 className="text-2xl font-luxury-heading text-black mb-4">🎯 Participation & Services</h3>
                   <div className="space-y-3 text-black">
                     {typeof displayEvent.capacity === 'number' && (
                       <div>
@@ -884,7 +924,7 @@ const EventDetail = () => {
               {/* Requirements */}
               {displayEvent.requirements && displayEvent.requirements.length > 0 && displayEvent.requirements[0] !== '' && (
               <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-6">What to Bring</h3>
+                <h3 className="text-2xl font-luxury-heading text-black mb-6">📦 What to Bring</h3>
                 <ul className="space-y-3">
                   {displayEvent.requirements.map((requirement, index) => (
                     <li key={index} className="flex items-start text-black font-luxury-body">
@@ -895,48 +935,6 @@ const EventDetail = () => {
                 </ul>
               </div>
               )}
-
-              {/* Event Details */}
-              <div className="luxury-card bg-cream-white p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-6">Event Details</h3>
-                <div className="space-y-4 text-black font-luxury-body">
-                  <div>
-                    <strong>Cost:</strong> {cost}
-                  </div>
-                  {staticEvent?.materials && (
-                    <div>
-                      <strong>Materials:</strong> {staticEvent.materials}
-                    </div>
-                  )}
-                  {staticEvent?.parking && (
-                    <div>
-                      <strong>Parking:</strong> {staticEvent.parking}
-                    </div>
-                  )}
-                  {staticEvent?.certification && (
-                    <div>
-                      <strong>Certification:</strong> {staticEvent.certification}
-                    </div>
-                  )}
-                  {staticEvent?.impact && (
-                    <div>
-                      <strong>Expected Impact:</strong> {staticEvent.impact}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Contact */}
-              <div className="luxury-card bg-vibrant-orange/10 p-8">
-                <h3 className="text-2xl font-luxury-heading text-black mb-4">Contact Information</h3>
-                <p className="text-black font-luxury-semibold mb-2">{coordinator}</p>
-                <p className="text-black font-luxury-body text-sm">{contact}</p>
-                {displayEvent.contactPhone && (
-                  <p className="text-black font-luxury-body text-sm">{displayEvent.contactPhone}</p>
-                )}
-              </div>
-
-              {/* Single Register Button (kept primary above) */}
             </div>
           </div>
         </div>
