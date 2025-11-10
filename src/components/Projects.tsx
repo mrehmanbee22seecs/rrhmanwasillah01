@@ -6,66 +6,6 @@ import { collection, query, where, orderBy, onSnapshot, Unsubscribe } from 'fire
 import { ProjectSubmission } from '../types/submissions';
 import ProjectCard from './ProjectCard';
 
-// Static projects as fallback/examples
-const staticProjects: ProjectSubmission[] = [
-  {
-    id: 'static-1',
-    title: 'Community Clean-Up Drive',
-    description: 'Join us in making our neighborhood cleaner and greener. This initiative focuses on removing litter, planting trees, and creating awareness about environmental conservation.',
-    category: 'Environment',
-    location: 'Islamabad',
-    address: 'F-9 Park, Islamabad',
-    startDate: '2024-03-15',
-    endDate: '2024-03-15',
-    expectedVolunteers: 50,
-    requirements: ['Comfortable clothing', 'Gloves', 'Water bottle'],
-    objectives: ['Clean up 2 hectares of park area', 'Plant 50 trees', 'Collect recyclable waste'],
-    contactEmail: 'cleanup@wasilah.org',
-    contactPhone: '+92-300-1234567',
-    timeline: '1 day event',
-    submittedBy: 'system',
-    submitterName: 'Wasilah Team',
-    submitterEmail: 'info@wasilah.org',
-    status: 'approved',
-    isVisible: true,
-    submittedAt: new Date(),
-    image: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=800',
-    auditTrail: [],
-    participantIds: [],
-    peopleImpacted: 500,
-    requiredSkills: [],
-    preferredSkills: ['Physical fitness', 'Environmental awareness'],
-  },
-  {
-    id: 'static-2',
-    title: 'Winter Clothing Drive',
-    description: 'Help us collect and distribute warm clothes to those in need this winter. We aim to provide blankets, jackets, and winter essentials to underprivileged communities.',
-    category: 'Welfare',
-    location: 'Lahore',
-    address: 'Liberty Market, Lahore',
-    startDate: '2024-12-01',
-    endDate: '2024-12-31',
-    expectedVolunteers: 30,
-    requirements: ['Warm clothes donations', 'Sorting skills'],
-    objectives: ['Collect 1000 items', 'Distribute to 5 communities', 'Provide winter relief'],
-    contactEmail: 'winter@wasilah.org',
-    contactPhone: '+92-300-7654321',
-    timeline: '1 month',
-    submittedBy: 'system',
-    submitterName: 'Wasilah Team',
-    submitterEmail: 'info@wasilah.org',
-    status: 'approved',
-    isVisible: true,
-    submittedAt: new Date(),
-    image: 'https://images.unsplash.com/photo-1509099863731-ef4bff19e808?w=800',
-    auditTrail: [],
-    participantIds: [],
-    peopleImpacted: 300,
-    requiredSkills: [],
-    preferredSkills: ['Organization', 'Communication'],
-  },
-];
-
 const Projects = () => {
   const [approvedProjects, setApprovedProjects] = useState<ProjectSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,9 +144,9 @@ The index creation may take a few minutes to complete.
     };
   }, []);
 
-  // Combine static and approved projects
+  // Use only approved projects (no static projects)
   const allProjects = useMemo(() => {
-    return [...staticProjects, ...approvedProjects];
+    return approvedProjects;
   }, [approvedProjects]);
 
   // Get available categories for filter

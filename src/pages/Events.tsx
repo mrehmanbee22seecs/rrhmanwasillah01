@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, MapPin, Users, ChevronRight, Filter, Search, Heart, BookOpen, Wrench, Leaf, Plus, Star, Award } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ChevronRight, Filter, Search, Heart, Plus } from 'lucide-react';
 import { db } from '../config/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { EventSubmission } from '../types/submissions';
-import { useScrollReveal } from '../hooks/useScrollReveal';
-import { useMagneticEffect } from '../hooks/useMagneticEffect';
 
 const Events = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -14,105 +12,6 @@ const Events = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [approvedEvents, setApprovedEvents] = useState<EventSubmission[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const staticEvents = [
-    {
-      id: 'health-fair',
-      title: 'Community Health Fair',
-      date: '2024-04-15',
-      time: '9:00 AM - 4:00 PM',
-      location: 'Central Community Center, Karachi',
-      description: 'Free health screenings, vaccinations, and wellness education for all community members.',
-      image: 'https://images.pexels.com/photos/4386467/pexels-photo-4386467.jpeg?auto=compress&cs=tinysrgb&w=800',
-      status: 'upcoming',
-      volunteers: 25,
-      capacity: 500,
-      category: 'Health',
-      icon: Heart,
-      registrationDeadline: 'April 10, 2024',
-      cost: 'Free'
-    },
-    {
-      id: 'educational-workshops',
-      title: 'Educational Workshop Series',
-      date: '2024-04-20',
-      time: '2:00 PM - 5:00 PM',
-      location: 'Waseela Training Center, Lahore',
-      description: 'Interactive learning sessions covering digital literacy, financial planning, and career development.',
-      image: 'https://images.pexels.com/photos/7516359/pexels-photo-7516359.jpeg?auto=compress&cs=tinysrgb&w=800',
-      status: 'upcoming',
-      volunteers: 15,
-      capacity: 80,
-      category: 'Education',
-      icon: BookOpen,
-      registrationDeadline: 'April 17, 2024',
-      cost: 'Free'
-    },
-    {
-      id: 'volunteer-training',
-      title: 'Volunteer Training Session',
-      date: '2024-04-25',
-      time: '10:00 AM - 3:00 PM',
-      location: 'Multiple Locations',
-      description: 'Comprehensive training for new volunteers covering our programs, safety protocols, and community engagement.',
-      image: 'https://images.pexels.com/photos/6646917/pexels-photo-6646917.jpeg?auto=compress&cs=tinysrgb&w=800',
-      status: 'upcoming',
-      volunteers: 8,
-      capacity: 60,
-      category: 'Training',
-      icon: Wrench,
-      registrationDeadline: 'April 22, 2024',
-      cost: 'Free'
-    },
-    {
-      id: 'cleanup-drive',
-      title: 'Clean-up Drive & Tree Plantation',
-      date: '2024-05-01',
-      time: '7:00 AM - 12:00 PM',
-      location: 'Various Parks & Communities',
-      description: 'Community-wide environmental initiative focusing on waste management and urban forestry.',
-      image: 'https://images.pexels.com/photos/9324574/pexels-photo-9324574.jpeg?auto=compress&cs=tinysrgb&w=800',
-      status: 'upcoming',
-      volunteers: 30,
-      capacity: 200,
-      category: 'Environment',
-      icon: Leaf,
-      registrationDeadline: 'April 28, 2024',
-      cost: 'Free'
-    },
-    {
-      id: 'ramadan-iftar',
-      title: 'Community Ramadan Iftar',
-      date: '2024-03-25',
-      time: '6:30 PM - 8:30 PM',
-      location: 'City Park, Islamabad',
-      description: 'Special iftar gathering bringing together community members during the holy month of Ramadan.',
-      image: 'https://images.pexels.com/photos/6646918/pexels-photo-6646918.jpeg?auto=compress&cs=tinysrgb&w=800',
-      status: 'completed',
-      volunteers: 40,
-      capacity: 300,
-      category: 'Community',
-      icon: Heart,
-      registrationDeadline: 'Completed',
-      cost: 'Free'
-    },
-    {
-      id: 'skills-expo',
-      title: 'Skills Development Expo',
-      date: '2024-05-15',
-      time: '10:00 AM - 6:00 PM',
-      location: 'Convention Center, Faisalabad',
-      description: 'Showcase of vocational skills, job opportunities, and entrepreneurship resources for youth.',
-      image: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=800',
-      status: 'upcoming',
-      volunteers: 35,
-      capacity: 400,
-      category: 'Employment',
-      icon: Wrench,
-      registrationDeadline: 'May 10, 2024',
-      cost: 'Free'
-    }
-  ];
 
   const categories = ['all', 'Health', 'Education', 'Training', 'Environment', 'Community', 'Employment'];
   const months = ['all', 'March', 'April', 'May', 'June'];
@@ -175,9 +74,10 @@ const Events = () => {
 
       console.log(`✓ Loaded ${events.length} approved events`);
       setApprovedEvents(events);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error fetching approved events:', error);
-      if (error?.message?.includes('index')) {
+      const errorObj = error as { message?: string };
+      if (errorObj?.message?.includes('index')) {
         console.error(`
 🔥 FIRESTORE INDEX MISSING FOR EVENT_SUBMISSIONS! 🔥
 
@@ -207,7 +107,7 @@ Or create the index in Firebase Console.
       date: event.date,
       time: event.time,
       location: event.location,
-      description: (event as any).shortSummary || event.description,
+      description: (event as { shortSummary?: string }).shortSummary || event.description,
       image: event.image || 'https://images.pexels.com/photos/4386467/pexels-photo-4386467.jpeg?auto=compress&cs=tinysrgb&w=800',
       status,
       volunteers: 25,
@@ -221,8 +121,8 @@ Or create the index in Firebase Console.
     });
   });
 
-  // Combine static events with approved user submissions
-  const allEvents = [...staticEvents, ...convertedApprovedEvents];
+  // Use only approved events (no static events)
+  const allEvents = convertedApprovedEvents;
 
   const filteredEvents = allEvents.filter(event => {
     const eventDate = new Date(event.date);
