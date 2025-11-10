@@ -1,19 +1,16 @@
 /**
  * Enhanced Firebase Functions for Wasillah Email Automation
  * 
- * These functions integrate with MailerSend for email delivery and handle:
+ * These functions integrate with Resend for email delivery and handle:
  * 1. Submission confirmations (projects/events)
  * 2. Admin approval notifications
  * 3. Reminder scheduling and sending
  * 4. Volunteer confirmations
- * 
- * CURRENTLY DISABLED - Email features are temporarily disabled
  */
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-// Email features temporarily disabled
-// const { MailerSend, EmailParams, Sender, Recipient } = require('mailersend');
+const { Resend } = require('resend');
 
 // Initialize if not already initialized
 if (!admin.apps.length) {
@@ -23,14 +20,12 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const { Timestamp } = admin.firestore;
 
-// Initialize MailerSend - DISABLED
-// const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY || '';
-// const mailerSend = MAILERSEND_API_KEY ? new MailerSend({ apiKey: MAILERSEND_API_KEY }) : null;
-const mailerSend = null;
+// Initialize Resend
+const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-// Use MailerSend's free trial domain for testing
-// Replace with your own verified domain in production
-const SENDER_EMAIL = 'test-ywj2lpn1kvpg7oqz.mlsender.net/';
+// Sender email configuration
+const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
 const SENDER_NAME = 'Wasillah Team';
 
 // Brand styling constants
@@ -43,38 +38,33 @@ const brand = {
 };
 
 /**
- * Helper function to send email via MailerSend
- * CURRENTLY DISABLED - Email features are temporarily disabled
+ * Helper function to send email via Resend
  */
-async function sendEmailViaMailerSend(emailData) {
-  // Email features temporarily disabled
-  console.log('Email feature disabled - would have sent to:', emailData.to);
-  return false;
-
-  /* DISABLED CODE
-  if (!mailerSend) {
-    console.log('MailerSend not configured; skipping email send');
+async function sendEmailViaResend(emailData) {
+  if (!resend) {
+    console.log('Resend not configured; skipping email send');
     return false;
   }
 
   try {
-    const sentFrom = new Sender(SENDER_EMAIL, SENDER_NAME);
-    const recipients = [new Recipient(emailData.to)];
+    const { data, error } = await resend.emails.send({
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      to: [emailData.to],
+      subject: emailData.subject,
+      html: emailData.html,
+    });
 
-    const emailParams = new EmailParams()
-      .setFrom(sentFrom)
-      .setTo(recipients)
-      .setSubject(emailData.subject)
-      .setHtml(emailData.html);
+    if (error) {
+      console.error('Failed to send email via Resend:', error);
+      return false;
+    }
 
-    const result = await mailerSend.email.send(emailParams);
-    console.log('Email sent via MailerSend:', result);
+    console.log('Email sent via Resend:', data?.id);
     return true;
   } catch (error) {
-    console.error('Failed to send email via MailerSend:', error);
+    console.error('Failed to send email via Resend:', error);
     return false;
   }
-  */
 }
 
 /**
@@ -125,7 +115,7 @@ exports.onProjectSubmissionCreate = functions.firestore
       </div>
     `;
 
-    await sendEmailViaMailerSend({
+    await sendEmailViaResend({
       to: submitterEmail,
       subject: `Project Submission Received: ${title}`,
       html: emailHtml
@@ -182,7 +172,7 @@ exports.onEventSubmissionCreate = functions.firestore
       </div>
     `;
 
-    await sendEmailViaMailerSend({
+    await sendEmailViaResend({
       to: submitterEmail,
       subject: `Event Submission Received: ${title}`,
       html: emailHtml
@@ -243,7 +233,7 @@ exports.onProjectStatusChange = functions.firestore
         </div>
       `;
 
-      await sendEmailViaMailerSend({
+      await sendEmailViaResend({
         to: submitterEmail,
         subject: `Great News! Your project "${title}" has been approved`,
         html: emailHtml
@@ -305,7 +295,7 @@ exports.onEventStatusChange = functions.firestore
         </div>
       `;
 
-      await sendEmailViaMailerSend({
+      await sendEmailViaResend({
         to: submitterEmail,
         subject: `Great News! Your event "${title}" has been approved`,
         html: emailHtml
@@ -379,7 +369,7 @@ exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(as
           </div>
         `;
 
-        const success = await sendEmailViaMailerSend({
+        const success = await sendEmailViaResend({
           to: reminder.email,
           subject: `Reminder: ${reminder.projectName}`,
           html: emailHtml
@@ -464,7 +454,7 @@ exports.sendReminderNow = functions.https.onCall(async (data, context) => {
       </div>
     `;
 
-    const success = await sendEmailViaMailerSend({
+    const success = await sendEmailViaResend({
       to: reminder.email,
       subject: `Reminder: ${reminder.projectName}`,
       html: emailHtml

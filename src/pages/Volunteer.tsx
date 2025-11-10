@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Users, Star, CheckCircle, ArrowRight, Award, Globe, Lightbulb } from 'lucide-react';
 import { sendEmail, formatVolunteerApplicationEmail } from '../utils/emailService';
-import { sendVolunteerConfirmation } from '../services/mailerSendEmailService';
+import { sendVolunteerConfirmation } from '../services/resendEmailService';
 import { useAuth } from '../contexts/AuthContext';
 import { useActivityLogger } from '../hooks/useActivityLogger';
 import { useScrollReveal } from '../hooks/useScrollReveal';
