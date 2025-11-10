@@ -201,7 +201,7 @@ The index creation may take a few minutes to complete.
   }, [allProjects]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-cream-white via-white to-cream-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <div className="hero-luxury-bg hero-projects text-cream-elegant py-20 relative overflow-hidden">
         <div className="floating-3d-luxury magnetic-element"></div>
