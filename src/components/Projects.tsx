@@ -410,12 +410,12 @@ The index creation may take a few minutes to complete.
             </p>
             <Link
               to="/volunteer"
-              className="inline-flex items-center px-10 py-5 bg-white text-vibrant-orange rounded-luxury font-luxury-semibold text-xl hover:bg-cream-elegant transition-all duration-300 shadow-2xl hover:shadow-3xl hover:scale-110 transform animate-text-reveal"
+              className="liquid-button text-xl px-12 py-6 inline-flex items-center group animate-text-reveal"
               style={{animationDelay: '0.6s'}}
               aria-label="Get involved as a volunteer"
             >
               Get Involved Today
-              <ChevronRight className="w-6 h-6 ml-2 group-hover:translate-x-1 transition-transform" />
+              <ChevronRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
         </div>
