@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { ProjectSubmission, EventSubmission, SubmissionStatus } from '../types/submissions';
-import DraftsList from '../components/DraftsList';
+import RemindersPanel from '../components/RemindersPanel';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useMagneticEffect } from '../hooks/useMagneticEffect';
 import { getRoleIcon, getRoleName, ROLE_INFO } from '../utils/roleInfo';
@@ -695,6 +695,11 @@ const Dashboard = () => {
 
             {/* My Drafts */}
             <DraftsList drafts={drafts} />
+
+            {/* My Reminders */}
+            <div className="luxury-card bg-white p-8">
+              <RemindersPanel />
+            </div>
           </div>
 
           {/* Sidebar */}

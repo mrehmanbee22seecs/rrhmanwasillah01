@@ -306,12 +306,13 @@ exports.onEventStatusChange = functions.firestore
   });
 
 /**
- * Scheduled function: Check for due reminders and send emails
- * Runs every 5 minutes
+ * SPARK PLAN COMPATIBLE: Trigger-based reminder checker
+ * Fires when a reminder document is updated with checkSchedule field
+ * This allows the frontend to trigger checks without requiring scheduled functions
  */
-exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(async () => {
+exports.checkDueReminders = functions.https.onCall(async (data, context) => {
+  // This function can be called by the frontend periodically or on user action
   const now = Timestamp.now();
-  const fiveMinAgo = Timestamp.fromMillis(now.toMillis() - 5 * 60 * 1000);
 
   try {
     const snapshot = await db.collection('reminders')
@@ -332,9 +333,8 @@ exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(as
         scheduledTime = reminder.scheduledAt;
       }
 
-      // Check if it's time to send
-      if (scheduledTime && scheduledTime.toMillis() <= now.toMillis() && 
-          scheduledTime.toMillis() >= fiveMinAgo.toMillis()) {
+      // Check if it's time to send (scheduled time has passed)
+      if (scheduledTime && scheduledTime.toMillis() <= now.toMillis()) {
         
         // Send reminder email
         const emailHtml = `
@@ -390,10 +390,10 @@ exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(as
       console.log(`Sent ${sentCount} reminder emails`);
     }
 
-    return null;
+    return { success: true, sentCount };
   } catch (error) {
-    console.error('Error sending reminders:', error);
-    return null;
+    console.error('Error checking reminders:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to check reminders');
   }
 });
 
