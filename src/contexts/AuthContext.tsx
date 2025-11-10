@@ -377,7 +377,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
 
       if (userSnap.exists()) {
         const currentData = userSnap.data() as UserData;
-        const updatedActivityLog = [...(currentData.activityLog || []), activityLog];
+        // Limit activity log to last 50 entries to prevent Firestore document size limit (1MB)
+        const updatedActivityLog = [...(currentData.activityLog || []), activityLog].slice(-50);
 
         await updateDoc(userRef, {
           activityLog: updatedActivityLog
