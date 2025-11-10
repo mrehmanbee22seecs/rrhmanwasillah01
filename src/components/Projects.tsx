@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Plus, TrendingUp, Search, Filter } from 'lucide-react';
 import { db } from '../config/firebase';
 import { collection, query, where, orderBy, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { ProjectSubmission } from '../types/submissions';
+import ProjectCard from './ProjectCard';
 
 // Static projects as fallback/examples
 const staticProjects: ProjectSubmission[] = [
@@ -65,38 +66,6 @@ const staticProjects: ProjectSubmission[] = [
   },
 ];
 
-// Helper functions for UI
-const getStatusColor = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case 'approved':
-      return 'bg-green-100 text-green-800 border-green-300';
-    case 'pending':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    case 'completed':
-      return 'bg-blue-100 text-blue-800 border-blue-300';
-    case 'rejected':
-      return 'bg-red-100 text-red-800 border-red-300';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-300';
-  }
-};
-
-const getStatusText = (status: string): string => {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-};
-
-const getCategoryColor = (category: string): string => {
-  const colors: Record<string, string> = {
-    Environment: 'bg-green-100 text-green-800',
-    Education: 'bg-blue-100 text-blue-800',
-    Health: 'bg-red-100 text-red-800',
-    Welfare: 'bg-purple-100 text-purple-800',
-    Technology: 'bg-indigo-100 text-indigo-800',
-    Community: 'bg-yellow-100 text-yellow-800',
-  };
-  return colors[category] || 'bg-gray-100 text-gray-800';
-};
-
 const Projects = () => {
   const [approvedProjects, setApprovedProjects] = useState<ProjectSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +73,6 @@ const Projects = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('approved');
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   // Debounce search input
   useEffect(() => {
@@ -277,11 +245,6 @@ The index creation may take a few minutes to complete.
     });
   }, [allProjects, selectedStatus, selectedCategory, debouncedSearch]);
 
-  // Handle image error with fallback
-  const handleImageError = useCallback((projectId: string) => {
-    setImageErrors(prev => ({ ...prev, [projectId]: true }));
-  }, []);
-
   // Calculate stats
   const stats = useMemo(() => {
     const activeProjects = allProjects.filter(p => p.status === 'approved').length;
@@ -409,75 +372,11 @@ The index creation may take a few minutes to complete.
         ) : filteredProjects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProjects.map((project) => (
-              <Link
+              <ProjectCard
                 key={project.id}
-                to={`/projects/${project.id}`}
-                className="bg-white rounded-luxury shadow-lg border-2 border-logo-navy/10 overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 group"
-              >
-                {/* Project Image */}
-                <div className="relative h-48 bg-gray-200 overflow-hidden">
-                  {project.image && !imageErrors[project.id] ? (
-                    <img
-                      src={project.image}
-                      alt={project.title}
-                      loading="lazy"
-                      onError={() => handleImageError(project.id)}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-vibrant-orange/20 to-logo-teal/20">
-                      <span className="text-6xl">🎯</span>
-                    </div>
-                  )}
-                  
-                  {/* Status Badge */}
-                  <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(project.status)}`}>
-                    {getStatusText(project.status)}
-                  </div>
-                </div>
-
-                {/* Project Content */}
-                <div className="p-6">
-                  {/* Category */}
-                  <div className="mb-3">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getCategoryColor(project.category)}`}>
-                      {project.category}
-                    </span>
-                  </div>
-
-                  {/* Title */}
-                  <h3 className="text-xl font-luxury-heading text-logo-navy mb-2 line-clamp-2 group-hover:text-vibrant-orange transition-colors">
-                    {project.title}
-                  </h3>
-
-                  {/* Description */}
-                  <p className="text-logo-navy-light font-luxury-body text-sm mb-4 line-clamp-3">
-                    {project.description}
-                  </p>
-
-                  {/* Meta Info */}
-                  <div className="flex items-center justify-between text-sm text-logo-navy-light">
-                    <div className="flex items-center">
-                      <span className="mr-2">📍</span>
-                      <span>{project.location || 'Location TBD'}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-2">👥</span>
-                      <span>{project.expectedVolunteers || 0}</span>
-                    </div>
-                  </div>
-
-                  {/* People Impacted */}
-                  {project.peopleImpacted && project.peopleImpacted > 0 && (
-                    <div className="mt-3 pt-3 border-t border-logo-navy/10">
-                      <div className="flex items-center text-sm text-vibrant-orange font-semibold">
-                        <span className="mr-2">❤️</span>
-                        <span>{project.peopleImpacted.toLocaleString()} people impacted</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Link>
+                project={project}
+                variant="default"
+              />
             ))}
           </div>
         ) : (
