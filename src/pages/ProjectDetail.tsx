@@ -354,9 +354,24 @@ const ProjectDetail = () => {
         const eventsRef = collection(db, 'event_submissions');
         const q = query(eventsRef, where('projectId', '==', id));
         const snap = await getDocs(q);
+        
+        console.log(`[ProjectDetail] Fetching events for project ID: ${id}`);
+        console.log(`[ProjectDetail] Found ${snap.docs.length} events with matching projectId`);
+        
         const events = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as EventSubmission))
-          .filter(e => e.status === 'approved' && e.isVisible === true);
+          .map(d => {
+            const data = d.data();
+            console.log(`[ProjectDetail] Event ${d.id}: status=${data.status}, isVisible=${data.isVisible}, projectId=${data.projectId}`);
+            return { id: d.id, ...data } as EventSubmission;
+          })
+          .filter(e => {
+            const approved = e.status === 'approved';
+            const visible = e.isVisible === true;
+            console.log(`[ProjectDetail] Event ${e.id} filter: approved=${approved}, visible=${visible}`);
+            return approved && visible;
+          });
+        
+        console.log(`[ProjectDetail] After filtering: ${events.length} events will be displayed`);
         setRelatedEvents(events);
       } catch (e) {
         console.error('Error fetching related events:', e);
