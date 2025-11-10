@@ -106,12 +106,34 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
     setShowShareMenu(false);
   };
 
+  // Calculate actual status based on dates
+  const getActualStatus = () => {
+    const now = new Date();
+    const start = project.startDate ? new Date(project.startDate) : null;
+    const end = project.endDate ? new Date(project.endDate) : null;
+
+    // If project has ended
+    if (end && end < now) {
+      return 'completed';
+    }
+
+    // If project hasn't started yet
+    if (start && start > now) {
+      return 'upcoming';
+    }
+
+    // If project is currently running (or approved without clear dates)
+    return 'active';
+  };
+
+  const actualStatus = getActualStatus();
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved':
+      case 'active':
       case 'ongoing':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'pending':
+      case 'upcoming':
       case 'planning':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'completed':
@@ -123,9 +145,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'approved':
+      case 'active':
+      case 'ongoing':
         return 'Active';
-      case 'pending':
+      case 'upcoming':
+      case 'planning':
         return 'Upcoming';
       case 'completed':
         return 'Completed';
@@ -239,8 +263,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
       {/* Status and Actions */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(project.status)} shadow-lg`}>
-          {getStatusText(project.status)}
+        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(actualStatus)} shadow-lg`}>
+          {getStatusText(actualStatus)}
         </span>
         {currentUser && (
           <>

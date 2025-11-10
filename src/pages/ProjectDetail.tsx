@@ -639,12 +639,73 @@ const ProjectDetail = () => {
               )}
 
               <button
-                onClick={() => setShowApplication(true)}
+                onClick={() => {
+                  // Check if project has ended or if we should block applications
+                  const now = new Date();
+                  const start = displayProject.startDate ? new Date(displayProject.startDate) : null;
+                  const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                  
+                  // Don't allow applications if project has ended
+                  if (end && now > end) {
+                    alert('This project has been completed. Please check out other active projects.');
+                    return;
+                  }
+                  
+                  // Don't allow applications if project has started (use startDate as implicit deadline)
+                  if (start && now > start) {
+                    alert('Application deadline has passed. Please check out other projects.');
+                    return;
+                  }
+                  
+                  setShowApplication(true);
+                }}
                 className="btn-luxury-primary text-lg px-8 py-4 inline-flex items-center"
+                disabled={(() => {
+                  const now = new Date();
+                  const start = displayProject.startDate ? new Date(displayProject.startDate) : null;
+                  const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                  return (end && now > end) || (start && now > start);
+                })()}
               >
-                Quick Apply Now
+                {(() => {
+                  const now = new Date();
+                  const start = displayProject.startDate ? new Date(displayProject.startDate) : null;
+                  const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                  
+                  if (end && now > end) {
+                    return 'Project Completed';
+                  }
+                  if (start && now > start) {
+                    return 'Application Closed';
+                  }
+                  return 'Quick Apply Now';
+                })()}
                 <Send className="ml-3 w-6 h-6" />
               </button>
+
+              {(() => {
+                const now = new Date();
+                const start = displayProject.startDate ? new Date(displayProject.startDate) : null;
+                const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                
+                if (end && now > end) {
+                  return (
+                    <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-luxury text-black">
+                      <p className="text-sm">This project has been completed. Check out other <Link to="/projects" className="text-vibrant-orange hover:underline">active projects</Link>.</p>
+                    </div>
+                  );
+                }
+                
+                if (start && now > start) {
+                  return (
+                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-luxury text-black">
+                      <p className="text-sm">Application deadline has passed. Browse other <Link to="/projects" className="text-vibrant-orange hover:underline">upcoming projects</Link>.</p>
+                    </div>
+                  );
+                }
+                
+                return null;
+              })()}
 
               {canAddEventToThisProject && (
                 <button
