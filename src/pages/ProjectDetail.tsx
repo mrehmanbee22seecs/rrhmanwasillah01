@@ -352,26 +352,25 @@ const ProjectDetail = () => {
       if (!id) return;
       try {
         const eventsRef = collection(db, 'event_submissions');
-        const q = query(eventsRef, where('projectId', '==', id));
+        // Add status and isVisible filters to match security rules
+        const q = query(
+          eventsRef, 
+          where('projectId', '==', id),
+          where('status', '==', 'approved'),
+          where('isVisible', '==', true)
+        );
         const snap = await getDocs(q);
         
         console.log(`[ProjectDetail] Fetching events for project ID: ${id}`);
-        console.log(`[ProjectDetail] Found ${snap.docs.length} events with matching projectId`);
+        console.log(`[ProjectDetail] Found ${snap.docs.length} approved & visible events`);
         
-        const events = snap.docs
-          .map(d => {
-            const data = d.data();
-            console.log(`[ProjectDetail] Event ${d.id}: status=${data.status}, isVisible=${data.isVisible}, projectId=${data.projectId}`);
-            return { id: d.id, ...data } as EventSubmission;
-          })
-          .filter(e => {
-            const approved = e.status === 'approved';
-            const visible = e.isVisible === true;
-            console.log(`[ProjectDetail] Event ${e.id} filter: approved=${approved}, visible=${visible}`);
-            return approved && visible;
-          });
+        const events = snap.docs.map(d => {
+          const data = d.data();
+          console.log(`[ProjectDetail] Event ${d.id}: status=${data.status}, isVisible=${data.isVisible}, projectId=${data.projectId}`);
+          return { id: d.id, ...data } as EventSubmission;
+        });
         
-        console.log(`[ProjectDetail] After filtering: ${events.length} events will be displayed`);
+        console.log(`[ProjectDetail] Total events to display: ${events.length}`);
         setRelatedEvents(events);
       } catch (e) {
         console.error('Error fetching related events:', e);
