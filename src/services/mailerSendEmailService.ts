@@ -1,14 +1,13 @@
 /**
  * MailerSend Email Service for Wasillah Email Automation
  * 
- * This service handles all transactional emails using MailerSend API:
- * 1. Welcome emails on user signup
- * 2. Submission confirmations (projects/events)
- * 3. Admin approval notifications
- * 4. Volunteer form confirmations
- * 5. Custom reminders
+ * ⚠️ DEPRECATED: This service has been replaced by resendEmailService.ts
  * 
- * CURRENTLY DISABLED - Email features are temporarily disabled
+ * This file is kept for reference only. All email functionality now uses Resend API.
+ * See: src/services/resendEmailService.ts
+ * 
+ * Migration completed: November 10, 2025
+ * Migration guide: RESEND_MIGRATION_GUIDE.md
  */
 
 // Email features temporarily disabled
