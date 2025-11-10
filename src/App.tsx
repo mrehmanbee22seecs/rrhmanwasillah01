@@ -8,7 +8,7 @@ import EditableHeader from './components/EditableHeader';
 import EditableFooter from './components/EditableFooter';
 import HomeEditable from './pages/HomeEditable';
 import AboutEditable from './pages/AboutEditable';
-import Projects from './pages/Projects';
+import Projects from './components/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';

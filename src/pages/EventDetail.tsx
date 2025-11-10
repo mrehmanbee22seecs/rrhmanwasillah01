@@ -655,13 +655,27 @@ const EventDetail = () => {
                 const now = new Date();
                 const eventDate = displayEvent.date ? new Date(displayEvent.date) : null;
                 const isSameDay = eventDate && now.toDateString() === eventDate.toDateString();
-                const deadline = displayEvent.registrationDeadline ? new Date(displayEvent.registrationDeadline) : null;
-                const deadlinePassed = deadline ? now > new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 23, 59, 59) : false;
+                
+                // Check if there's a valid registration deadline (not 'Open' or empty)
+                const hasValidDeadline = displayEvent.registrationDeadline && 
+                                        displayEvent.registrationDeadline !== 'Open' && 
+                                        displayEvent.registrationDeadline.trim() !== '';
+                
+                // Use registration deadline if valid, otherwise use event date as deadline
+                const deadline = hasValidDeadline
+                  ? new Date(displayEvent.registrationDeadline) 
+                  : eventDate;
+                
+                const deadlinePassed = deadline 
+                  ? now > new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 23, 59, 59) 
+                  : false;
 
                 if (deadlinePassed) {
                   return (
                     <div className="p-4 bg-red-50 border border-red-200 rounded-luxury text-black">
-                      Registration deadline has passed. Please browse other events.
+                      {hasValidDeadline
+                        ? 'Registration deadline has passed. Please browse other events.'
+                        : 'This event has finished. Please browse other events.'}
                     </div>
                   );
                 }

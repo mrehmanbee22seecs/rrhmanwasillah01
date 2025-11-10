@@ -192,10 +192,8 @@ const Home = () => {
       </section>
 
       {/* Impact Highlights - Enhanced */}
-      <section id="impact-stats" className="section-story-impact py-24 relative overflow-hidden">
+      <section id="impact-stats" className="section-story-community py-24 relative overflow-hidden">
         <div className="overlay-pattern"></div>
-        <div className="blend-overlay-vibrant"></div>
-        
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-20 scroll-reveal">
             <h2 className="text-5xl md:text-6xl font-modern-display text-cream-elegant mb-8">
@@ -208,14 +206,14 @@ const Home = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 stagger-animation">
             {impactStats.map((stat, index) => (
-              <div key={index} className="text-center floating-card luxury-card p-10 group magnetic-element bg-white/10 backdrop-blur-lg border-2 border-white/20">
+              <div key={index} className="text-center floating-card luxury-card p-10 group magnetic-element bg-white/10 backdrop-blur-lg border-2 border-cream-elegant/20 shadow-lg">
                 <div className="service-icon-luxury w-20 h-20 flex items-center justify-center mx-auto mb-8 group-hover:animate-pulse-glow">
-                  <stat.icon className="w-10 h-10 text-white group-hover:animate-float-gentle" />
+                  <stat.icon className="w-10 h-10 text-cream-elegant group-hover:animate-float-gentle" />
                 </div>
-                <h3 className="text-5xl font-luxury-display impact-counter mb-4 animate-counter text-cream-elegant group-hover:text-vibrant-orange-light transition-colors">
+                <h3 className="text-5xl font-luxury-display impact-counter mb-4 animate-counter text-cream-elegant group-hover:text-vibrant-orange transition-colors">
                   {stat.key === 'lives' ? `${Math.floor(counters[stat.key] / 1000)}K+` : `${counters[stat.key]}+`}
                 </h3>
-                <p className="text-cream-elegant/90 font-luxury-medium text-lg group-hover:text-cream-elegant transition-colors">{stat.label}</p>
+                <p className="text-cream-elegant/80 font-luxury-medium text-lg group-hover:text-cream-elegant transition-colors">{stat.label}</p>
                 <div className="absolute inset-0 bg-gradient-to-br from-vibrant-orange/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-luxury"></div>
               </div>
             ))}
@@ -261,7 +259,7 @@ const Home = () => {
               </p>
               <Link
                 to="/about"
-                className="liquid-button text-lg inline-flex items-center group animate-text-reveal"
+                className="liquid-button text-xl px-12 py-6 inline-flex items-center group animate-text-reveal"
                 style={{animationDelay: '0.6s'}}
               >
                 Learn More About Us

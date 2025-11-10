@@ -352,11 +352,25 @@ const ProjectDetail = () => {
       if (!id) return;
       try {
         const eventsRef = collection(db, 'event_submissions');
-        const q = query(eventsRef, where('projectId', '==', id));
+        // Add status and isVisible filters to match security rules
+        const q = query(
+          eventsRef, 
+          where('projectId', '==', id),
+          where('status', '==', 'approved'),
+          where('isVisible', '==', true)
+        );
         const snap = await getDocs(q);
-        const events = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as EventSubmission))
-          .filter(e => e.status === 'approved' && e.isVisible === true);
+        
+        console.log(`[ProjectDetail] Fetching events for project ID: ${id}`);
+        console.log(`[ProjectDetail] Found ${snap.docs.length} approved & visible events`);
+        
+        const events = snap.docs.map(d => {
+          const data = d.data();
+          console.log(`[ProjectDetail] Event ${d.id}: status=${data.status}, isVisible=${data.isVisible}, projectId=${data.projectId}`);
+          return { id: d.id, ...data } as EventSubmission;
+        });
+        
+        console.log(`[ProjectDetail] Total events to display: ${events.length}`);
         setRelatedEvents(events);
       } catch (e) {
         console.error('Error fetching related events:', e);
@@ -639,12 +653,52 @@ const ProjectDetail = () => {
               )}
 
               <button
-                onClick={() => setShowApplication(true)}
+                onClick={() => {
+                  // Check if project has ended or if we should block applications
+                  const now = new Date();
+                  const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                  
+                  // Don't allow applications if project has ended
+                  if (end && now > end) {
+                    alert('This project has been completed. Please check out other active projects.');
+                    return;
+                  }
+                  
+                  setShowApplication(true);
+                }}
                 className="btn-luxury-primary text-lg px-8 py-4 inline-flex items-center"
+                disabled={(() => {
+                  const now = new Date();
+                  const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                  return end && now > end;
+                })()}
               >
-                Quick Apply Now
+                {(() => {
+                  const now = new Date();
+                  const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                  
+                  if (end && now > end) {
+                    return 'Project Completed';
+                  }
+                  return 'Quick Apply Now';
+                })()}
                 <Send className="ml-3 w-6 h-6" />
               </button>
+
+              {(() => {
+                const now = new Date();
+                const end = displayProject.endDate ? new Date(displayProject.endDate) : null;
+                
+                if (end && now > end) {
+                  return (
+                    <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-luxury text-black">
+                      <p className="text-sm">This project has been completed. Check out other <Link to="/projects" className="text-vibrant-orange hover:underline">active projects</Link>.</p>
+                    </div>
+                  );
+                }
+                
+                return null;
+              })()}
 
               {canAddEventToThisProject && (
                 <button
@@ -961,19 +1015,133 @@ const ProjectDetail = () => {
       {relatedEvents.length > 0 && (
         <section className="py-16 bg-cream-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-luxury-heading text-black mb-8 text-center">Events for this Project</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {relatedEvents.map((ev) => (
-                <Link
-                  key={ev.id}
-                  to={`/events/${ev.id}`}
-                  className="luxury-card bg-cream-white p-6 hover:shadow-luxury-lg transition-all"
-                >
-                  <div className="text-sm text-black/70 mb-2">{ev.date}{ev.time ? ` • ${ev.time}` : ''}</div>
-                  <h3 className="text-xl font-luxury-heading text-black mb-2">{ev.title}</h3>
-                  <div className="text-black/80">{ev.location}</div>
-                </Link>
-              ))}
+            <h2 className="text-3xl font-luxury-heading text-black mb-8 text-center">Events under this Project:</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {relatedEvents.map((ev) => {
+                const formatEventDate = (dateStr: string) => {
+                  if (!dateStr) return 'TBD';
+                  try {
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    });
+                  } catch {
+                    return dateStr;
+                  }
+                };
+
+                const getEventStatusColor = (status: string) => {
+                  switch (status) {
+                    case 'upcoming':
+                      return 'bg-green-100 text-green-800';
+                    case 'active':
+                      return 'bg-blue-100 text-blue-800';
+                    case 'completed':
+                      return 'bg-gray-100 text-gray-800';
+                    default:
+                      return 'bg-gray-100 text-gray-800';
+                  }
+                };
+
+                const getEventStatusText = (status: string) => {
+                  return status.charAt(0).toUpperCase() + status.slice(1);
+                };
+
+                const getCategoryColorForEvent = (category: string) => {
+                  const colors: Record<string, string> = {
+                    Health: 'bg-red-50 text-red-700 border-red-200',
+                    Education: 'bg-blue-50 text-blue-700 border-blue-200',
+                    Training: 'bg-purple-50 text-purple-700 border-purple-200',
+                    Environment: 'bg-green-50 text-green-700 border-green-200',
+                    Community: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                    Employment: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                  };
+                  return colors[category] || 'bg-gray-50 text-gray-700 border-gray-200';
+                };
+
+                return (
+                  <Link
+                    key={ev.id}
+                    to={`/events/${ev.id}`}
+                    className="luxury-card bg-cream-white rounded-luxury-lg shadow-luxury overflow-hidden hover:shadow-luxury-lg transition-all duration-300 transform hover:-translate-y-2 group"
+                  >
+                    {/* Event Image */}
+                    <div className="relative">
+                      <img
+                        src={ev.image || 'https://images.pexels.com/photos/4386467/pexels-photo-4386467.jpeg?auto=compress&cs=tinysrgb&w=800'}
+                        alt={ev.title}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute top-4 right-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getEventStatusColor(ev.status)}`}>
+                          {getEventStatusText(ev.status)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Event Content */}
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`text-sm font-medium px-3 py-1 rounded-full border ${getCategoryColorForEvent(ev.category)}`}>
+                          {ev.category}
+                        </span>
+                        <span className="text-sm text-vibrant-orange font-medium">{ev.cost || 'Free'}</span>
+                      </div>
+                      
+                      <h3 className="text-xl font-luxury-heading text-black mb-3 group-hover:text-vibrant-orange transition-colors">
+                        {ev.title}
+                      </h3>
+                      
+                      {ev.affiliation && ev.affiliation.name && (
+                        <div className="text-xs text-vibrant-orange-dark font-semibold mb-2 flex items-center">
+                          <span className="mr-1">🏢</span>
+                          {ev.affiliation.name}
+                          {(ev.affiliation.customType || ev.affiliation.type) && (
+                            <span className="text-black/60 ml-1">
+                              • {ev.affiliation.customType || ev.affiliation.type}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      <p className="text-black font-luxury-body text-sm mb-4 line-clamp-3">
+                        {ev.description}
+                      </p>
+                      
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center text-gray-600">
+                          <Calendar className="w-4 h-4 mr-2" />
+                          <span className="text-sm">{formatEventDate(ev.date)}</span>
+                        </div>
+                        {ev.time && (
+                          <div className="flex items-center text-gray-600">
+                            <Clock className="w-4 h-4 mr-2" />
+                            <span className="text-sm">{ev.time}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center text-gray-600">
+                          <MapPin className="w-4 h-4 mr-2" />
+                          <span className="text-sm">{ev.location}</span>
+                        </div>
+                        {ev.expectedAttendees && (
+                          <div className="flex items-center text-gray-600">
+                            <Users className="w-4 h-4 mr-2" />
+                            <span className="text-sm">{ev.expectedAttendees} expected attendees</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {ev.registrationDeadline && (
+                        <div className="text-sm text-vibrant-orange-dark font-semibold">
+                          Register by: {formatEventDate(ev.registrationDeadline)}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>
