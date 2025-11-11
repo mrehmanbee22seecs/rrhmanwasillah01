@@ -8,6 +8,7 @@ import { db } from '../config/firebase';
 import ImpactSummary from '../components/Dashboard/ImpactSummary';
 import TaskChecklist, { Task } from '../components/Dashboard/TaskChecklist';
 import PersonalNotes, { Note } from '../components/Dashboard/PersonalNotes';
+import RemindersPanel from '../components/RemindersPanel';
 import { ProjectSubmission, EventSubmission } from '../types/submissions';
 
 interface UserStats {
@@ -510,6 +511,11 @@ const StudentDashboard = () => {
                   </div>
                 </Link>
               </div>
+            </div>
+
+            {/* My Reminders */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <RemindersPanel />
             </div>
           </div>
         </div>
