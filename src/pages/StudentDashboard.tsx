@@ -42,12 +42,20 @@ const StudentDashboard = () => {
   useEffect(() => {
     if (currentUser) {
       fetchDashboardData();
-      setupRealtimeListeners();
     }
   }, [currentUser]);
 
-  const setupRealtimeListeners = () => {
-    if (!currentUser) return;
+  // Separate effect for real-time listeners with proper cleanup
+  useEffect(() => {
+    if (!currentUser) {
+      // Clear data when user logs out
+      setTasks([]);
+      setNotes([]);
+      return;
+    }
+
+    let unsubscribeTasks: (() => void) | null = null;
+    let unsubscribeNotes: (() => void) | null = null;
 
     try {
       // Listen to tasks with error handling
@@ -56,7 +64,7 @@ const StudentDashboard = () => {
         where('userId', '==', currentUser.uid),
         orderBy('createdAt', 'desc')
       );
-      const unsubscribeTasks = onSnapshot(
+      unsubscribeTasks = onSnapshot(
         tasksQuery, 
         (snapshot) => {
           const fetchedTasks: Task[] = [];
@@ -77,7 +85,7 @@ const StudentDashboard = () => {
         where('userId', '==', currentUser.uid),
         orderBy('createdAt', 'desc')
       );
-      const unsubscribeNotes = onSnapshot(
+      unsubscribeNotes = onSnapshot(
         notesQuery, 
         (snapshot) => {
           const fetchedNotes: Note[] = [];
@@ -91,16 +99,16 @@ const StudentDashboard = () => {
           // Silently fail - don't crash the app
         }
       );
-
-      return () => {
-        unsubscribeTasks();
-        unsubscribeNotes();
-      };
     } catch (error) {
       console.error('Error setting up real-time listeners:', error);
-      return () => {}; // Return empty cleanup function
     }
-  };
+
+    // Cleanup function - unsubscribe from listeners when user changes or component unmounts
+    return () => {
+      if (unsubscribeTasks) unsubscribeTasks();
+      if (unsubscribeNotes) unsubscribeNotes();
+    };
+  }, [currentUser]);
 
   const fetchDashboardData = async () => {
     if (!currentUser) return;
