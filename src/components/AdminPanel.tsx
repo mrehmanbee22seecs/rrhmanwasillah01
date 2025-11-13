@@ -134,6 +134,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       for (const collectionName of collections) {
         try {
           const q = query(collection(db, collectionName), orderBy('timestamp', 'desc'));
+      // Use correct collection names that exist in Firestore with proper admin read permissions
+      const collections = [
+        { name: 'volunteer_applications', type: 'volunteer' },
+        { name: 'contact_messages', type: 'contact' }
+      ];
+      const allResponses: Response[] = [];
+
+      for (const { name, type } of collections) {
+        try {
+          const q = query(collection(db, name), orderBy('submittedAt', 'desc'));
           const querySnapshot = await getDocs(q);
           
           querySnapshot.forEach((doc) => {
@@ -142,16 +152,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
               type: collectionName.slice(0, -1) as any,
               data: doc.data(),
               timestamp: doc.data().timestamp,
+              type: type as any,
+              data: doc.data(),
+              timestamp: doc.data().submittedAt || doc.data().timestamp,
               status: doc.data().status || 'new'
             });
           });
         } catch (collectionError) {
           console.warn(`Could not fetch ${collectionName}:`, collectionError);
           // Continue with other collections even if one fails
+          console.warn(`Could not fetch ${name}:`, collectionError);
         }
       }
 
-      allResponses.sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds);
+      allResponses.sort((a, b) => {
+        const aTime = a.timestamp?.seconds || 0;
+        const bTime = b.timestamp?.seconds || 0;
+        return bTime - aTime;
+      });
       setResponses(allResponses);
     } catch (error) {
       console.error('Error fetching responses:', error);

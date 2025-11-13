@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import {
   User,
   signInWithEmailAndPassword,
@@ -79,6 +79,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  
+  // Track last login update to prevent excessive writes during auth state changes
+  const lastLoginUpdateRef = useRef<{ [uid: string]: number }>({});
 
   // Admin credentials
   const ADMIN_EMAIL = 'admin@wasilah.org';
@@ -149,10 +152,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
         return finalData;
       } else {
         // Existing user - update last login and merge any additional data (e.g., OAuth preferences)
-        console.log('Existing user detected, updating last login...');
-        const updateData: any = {
-          lastLogin: serverTimestamp()
-        };
+        console.log('Existing user detected, checking if lastLogin update is needed...');
+        
+        // Throttle lastLogin updates to prevent write queue exhaustion
+        // Only update if more than 5 minutes have passed since last update
+        const lastUpdate = lastLoginUpdateRef.current[user.uid] || 0;
+        const now = Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+        const shouldUpdateLogin = (now - lastUpdate) > fiveMinutes;
+        
+        const updateData: any = {};
+        
+        if (shouldUpdateLogin) {
+          updateData.lastLogin = serverTimestamp();
+          lastLoginUpdateRef.current[user.uid] = now;
+          console.log('Updating lastLogin (throttled)');
+        } else {
+          console.log('Skipping lastLogin update (throttled, last update was recent)');
+        }
         
         // Merge additionalData if provided (e.g., OAuth users skipping onboarding)
         if (additionalData && Object.keys(additionalData).length > 0) {
@@ -177,8 +194,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
           });
         }
         
-        await updateDoc(userRef, updateData);
-        console.log('✅ Last login updated with additional data');
+        // Only update if there's something to update
+        if (Object.keys(updateData).length > 0) {
+          await updateDoc(userRef, updateData);
+          console.log('✅ User document updated with:', Object.keys(updateData));
+        } else {
+          console.log('No updates needed for user document (throttled)');
+        }
         
         // Fetch the updated document
         const updatedUserSnap = await getDoc(userRef);
@@ -377,7 +399,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
 
       if (userSnap.exists()) {
         const currentData = userSnap.data() as UserData;
-        const updatedActivityLog = [...(currentData.activityLog || []), activityLog];
+        // Limit activity log to last 50 entries to prevent Firestore document size limit (1MB)
+        const updatedActivityLog = [...(currentData.activityLog || []), activityLog].slice(-50);
 
         await updateDoc(userRef, {
           activityLog: updatedActivityLog

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   collection,
   addDoc,
@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   Timestamp,
   getDocs,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { filterProfanity, checkRateLimit, generateChatTitle } from '../utils/chatHelpers';
@@ -83,6 +84,10 @@ export function useChat(userId: string | null, chatId?: string) {
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatId || null);
   const [isTakeover, setIsTakeover] = useState(false);
   const [kbPages, setKbPages] = useState<any[]>([]);
+  
+  // Debounce timer for lastActivityAt updates to prevent write queue exhaustion
+  const activityUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingActivityUpdatesRef = useRef<Set<string>>(new Set());
 
   // Sync chatId parameter with internal state
   useEffect(() => {
@@ -90,6 +95,47 @@ export function useChat(userId: string | null, chatId?: string) {
       setCurrentChatId(chatId);
     }
   }, [chatId]);
+  
+  // Debounced activity update to prevent write queue exhaustion
+  const updateChatActivity = useCallback((chatIdToUpdate: string) => {
+    if (!userId) return;
+    
+    pendingActivityUpdatesRef.current.add(chatIdToUpdate);
+    
+    // Clear existing timer
+    if (activityUpdateTimerRef.current) {
+      clearTimeout(activityUpdateTimerRef.current);
+    }
+    
+    // Batch activity updates every 2 seconds to reduce writes
+    activityUpdateTimerRef.current = setTimeout(async () => {
+      const chatIds = Array.from(pendingActivityUpdatesRef.current);
+      pendingActivityUpdatesRef.current.clear();
+      
+      if (chatIds.length === 0) return;
+      
+      try {
+        // Use batch writes to update multiple chats efficiently
+        const batch = writeBatch(db);
+        chatIds.forEach((id) => {
+          const chatRef = doc(db, `users/${userId}/chats/${id}`);
+          batch.update(chatRef, { lastActivityAt: serverTimestamp() });
+        });
+        await batch.commit();
+      } catch (error) {
+        console.error('Error updating chat activity:', error);
+      }
+    }, 2000); // Debounce for 2 seconds
+  }, [userId]);
+  
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (activityUpdateTimerRef.current) {
+        clearTimeout(activityUpdateTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -234,8 +280,13 @@ export function useChat(userId: string | null, chatId?: string) {
       }
 
       const messagesRef = collection(db, `users/${userId}/chats/${activeChatId}/messages`);
+      const chatRef = doc(db, `users/${userId}/chats/${activeChatId}`);
 
-      await addDoc(messagesRef, {
+      // Use batch write to combine user message + chat update into single operation
+      const batch = writeBatch(db);
+      
+      const userMessageRef = doc(messagesRef);
+      batch.set(userMessageRef, {
         sender: isAdmin ? 'admin' : 'user',
         text: filteredText,
         createdAt: serverTimestamp(),
@@ -249,11 +300,12 @@ export function useChat(userId: string | null, chatId?: string) {
         },
       });
 
-      const chatRef = doc(db, `users/${userId}/chats/${activeChatId}`);
-      await updateDoc(chatRef, {
+      batch.update(chatRef, {
         lastActivityAt: serverTimestamp(),
         aiProvider: 'apifreellm',
       });
+      
+      await batch.commit();
 
       if (!isAdmin && !isTakeover) {
         // Immediate bot response with timeout protection
@@ -268,13 +320,17 @@ export function useChat(userId: string | null, chatId?: string) {
             const timeoutText = getResponse('timeout', lang);
             
             try {
-              await addDoc(messagesRef, {
+              // Use batch write for bot response to reduce write operations
+              const batch = writeBatch(db);
+              const botMessageRef = doc(messagesRef);
+              batch.set(botMessageRef, {
                 sender: 'bot',
                 text: timeoutText,
                 createdAt: serverTimestamp(),
                 meta: { needsAdmin: true, timeout: true, matchType: 'timeout' },
               });
-              await updateDoc(chatRef, { lastActivityAt: serverTimestamp() });
+              batch.update(chatRef, { lastActivityAt: serverTimestamp() });
+              await batch.commit();
             } catch (err) {
               console.error('Error sending timeout response:', err);
             }
@@ -400,7 +456,10 @@ export function useChat(userId: string | null, chatId?: string) {
               // Enhancement 8: Add smart suggestions for follow-up questions
               const suggestions = getSmartSuggestions(filteredText, userLanguage === 'ur-roman' ? 'ur-roman' : 'en');
               
-              await addDoc(messagesRef, {
+              // Use batch write for bot response + activity update to reduce write operations
+              const batch = writeBatch(db);
+              const botMessageRef = doc(messagesRef);
+              batch.set(botMessageRef, {
                 sender: 'bot',
                 text: botResponseText,
                 createdAt: serverTimestamp(),
@@ -409,9 +468,11 @@ export function useChat(userId: string | null, chatId?: string) {
                   suggestions, // Add contextual suggestions
                 },
               });
-
-              await updateDoc(chatRef, { lastActivityAt: serverTimestamp() });
-              console.log('✅ Bot response sent with smart suggestions');
+              
+              batch.update(chatRef, { lastActivityAt: serverTimestamp() });
+              await batch.commit();
+              
+              console.log('✅ Bot response sent with smart suggestions (batched write)');
             }
           } catch (error) {
             console.error('Bot response error:', error);
@@ -421,14 +482,21 @@ export function useChat(userId: string | null, chatId?: string) {
             const lang = detectLang(filteredText);
             const fallbackText = getResponse('timeout', lang);
             
-            await addDoc(messagesRef, {
-              sender: 'bot',
-              text: fallbackText,
-              createdAt: serverTimestamp(),
-              meta: { needsAdmin: true, error: true, matchType: 'error' },
-            });
-
-            await updateDoc(chatRef, { lastActivityAt: serverTimestamp() });
+            try {
+              // Use batch write for error response
+              const batch = writeBatch(db);
+              const errorMessageRef = doc(messagesRef);
+              batch.set(errorMessageRef, {
+                sender: 'bot',
+                text: fallbackText,
+                createdAt: serverTimestamp(),
+                meta: { needsAdmin: true, error: true, matchType: 'error' },
+              });
+              batch.update(chatRef, { lastActivityAt: serverTimestamp() });
+              await batch.commit();
+            } catch (batchError) {
+              console.error('Error sending error response:', batchError);
+            }
           }
         })();
       }

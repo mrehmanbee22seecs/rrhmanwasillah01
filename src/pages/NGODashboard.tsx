@@ -37,12 +37,20 @@ const NGODashboard = () => {
   useEffect(() => {
     if (currentUser) {
       fetchDashboardData();
-      setupRealtimeListeners();
     }
   }, [currentUser]);
 
-  const setupRealtimeListeners = () => {
-    if (!currentUser) return;
+  // Separate effect for real-time listeners with proper cleanup
+  useEffect(() => {
+    if (!currentUser) {
+      // Clear data when user logs out
+      setMyProjects([]);
+      setMyEvents([]);
+      return;
+    }
+
+    let unsubscribeProjects: (() => void) | null = null;
+    let unsubscribeEvents: (() => void) | null = null;
 
     try {
       // Listen to user's projects with error handling
@@ -51,7 +59,7 @@ const NGODashboard = () => {
         where('submittedBy', '==', currentUser.uid),
         orderBy('submittedAt', 'desc')
       );
-      const unsubscribeProjects = onSnapshot(
+      unsubscribeProjects = onSnapshot(
         projectsQuery, 
         (snapshot) => {
           const projects: ProjectSubmission[] = [];
@@ -80,7 +88,7 @@ const NGODashboard = () => {
         where('submittedBy', '==', currentUser.uid),
         orderBy('submittedAt', 'desc')
       );
-      const unsubscribeEvents = onSnapshot(
+      unsubscribeEvents = onSnapshot(
         eventsQuery, 
         (snapshot) => {
           const events: EventSubmission[] = [];
@@ -95,16 +103,16 @@ const NGODashboard = () => {
           // Silently fail - don't crash the app
         }
       );
-
-      return () => {
-        unsubscribeProjects();
-        unsubscribeEvents();
-      };
     } catch (error) {
       console.error('Error setting up real-time listeners:', error);
-      return () => {}; // Return empty cleanup function
     }
-  };
+
+    // Cleanup function - unsubscribe from listeners when user changes or component unmounts
+    return () => {
+      if (unsubscribeProjects) unsubscribeProjects();
+      if (unsubscribeEvents) unsubscribeEvents();
+    };
+  }, [currentUser]);
 
   const fetchDashboardData = async () => {
     if (!currentUser) return;
