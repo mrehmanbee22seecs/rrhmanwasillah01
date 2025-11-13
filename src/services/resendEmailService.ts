@@ -1,26 +1,22 @@
 /**
- * MailerSend Email Service for Wasillah Email Automation
+ * Resend Email Service for Wasillah Email Automation
  * 
- * ⚠️ DEPRECATED: This service has been replaced by resendEmailService.ts
- * 
- * This file is kept for reference only. All email functionality now uses Resend API.
- * See: src/services/resendEmailService.ts
- * 
- * Migration completed: November 10, 2025
- * Migration guide: RESEND_MIGRATION_GUIDE.md
+ * This service handles all transactional emails using Resend API:
+ * 1. Welcome emails on user signup
+ * 2. Submission confirmations (projects/events)
+ * 3. Admin approval notifications
+ * 4. Volunteer form confirmations
+ * 5. Custom reminders
  */
 
-// Email features temporarily disabled
-// import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import { Resend } from 'resend';
 
-// Initialize MailerSend client - DISABLED
-// const mailerSendApiKey = (import.meta as any)?.env?.VITE_MAILERSEND_API_KEY;
-// const mailerSend = mailerSendApiKey ? new MailerSend({ apiKey: mailerSendApiKey }) : null;
-const mailerSend = null;
+// Initialize Resend client
+const resendApiKey = import.meta.env.VITE_RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-// Use MailerSend's free trial domain for testing
-// Replace with your own verified domain in production
-const SENDER_EMAIL = 'MS_qJLYQi@trial-0r83ql3jjz8lgwpz.mlsender.net'; // MailerSend trial domain
+// Sender email configuration
+const SENDER_EMAIL = import.meta.env.VITE_RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
 const SENDER_NAME = 'Wasillah Team';
 
 // Brand styling
@@ -33,14 +29,33 @@ const brand = {
 };
 
 /**
- * Helper function to send email via MailerSend
- * CURRENTLY DISABLED - Email features are temporarily disabled
+ * Helper function to send email via Resend
  */
 async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-  // Email features temporarily disabled
-  console.log('Email feature disabled - would have sent to:', to);
-  console.log('Subject:', subject);
-  return false;
+  if (!resend) {
+    console.error('Resend API key not configured');
+    return false;
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      to: [to],
+      subject: subject,
+      html: html,
+    });
+
+    if (error) {
+      console.error('Failed to send email via Resend:', error);
+      return false;
+    }
+
+    console.log('Email sent via Resend:', data?.id);
+    return true;
+  } catch (error) {
+    console.error('Failed to send email via Resend:', error);
+    return false;
+  }
 }
 
 /**
@@ -342,10 +357,10 @@ export async function sendVolunteerConfirmation(params: {
 }
 
 /**
- * Check if MailerSend is properly configured
+ * Check if Resend is properly configured
  */
-export function isMailerSendConfigured(): boolean {
-  return !!mailerSend;
+export function isResendConfigured(): boolean {
+  return !!resend;
 }
 
 export default {
@@ -354,5 +369,5 @@ export default {
   sendApprovalEmail,
   sendReminderEmail,
   sendVolunteerConfirmation,
-  isMailerSendConfigured
+  isResendConfigured
 };

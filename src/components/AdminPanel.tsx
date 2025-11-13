@@ -150,6 +150,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           });
         } catch (collectionError) {
           console.warn(`Could not fetch ${name}:`, collectionError);
+          // Continue with other collections even if one fails
         }
       }
 
@@ -161,6 +162,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       setResponses(allResponses);
     } catch (error) {
       console.error('Error fetching responses:', error);
+      // Set empty array instead of leaving it in error state
+      setResponses([]);
     } finally {
       setLoading(false);
     }

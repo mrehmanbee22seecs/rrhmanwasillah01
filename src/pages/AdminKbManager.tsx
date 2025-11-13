@@ -90,7 +90,9 @@ const AdminKbManager = () => {
       
       setKbStats({
         totalPages: pages.length,
-        lastUpdated: pages[0]?.lastUpdated?.toDate(),
+        lastUpdated: pages[0]?.lastUpdated?.toDate && typeof pages[0].lastUpdated.toDate === 'function' 
+          ? pages[0].lastUpdated.toDate() 
+          : undefined,
         pages: pages
       });
     } catch (error) {

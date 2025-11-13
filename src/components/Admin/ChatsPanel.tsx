@@ -57,7 +57,9 @@ export default function ChatsPanel() {
           return {
             id: chatDoc.id,
             title: chatData.title,
-            lastActivityAt: chatData.lastActivityAt?.toDate() || new Date(),
+            lastActivityAt: (chatData.lastActivityAt?.toDate && typeof chatData.lastActivityAt.toDate === 'function') 
+              ? chatData.lastActivityAt.toDate() 
+              : new Date(),
             isActive: chatData.isActive ?? true,
             takeoverBy: chatData.takeoverBy,
             unreadCount: 0,

@@ -4,7 +4,7 @@
  */
 
 import { Notification, NotificationType } from '../types/notifications';
-import { sendWelcomeEmail, sendSubmissionConfirmation, sendApprovalEmail, sendReminderEmail } from '../services/mailerSendEmailService';
+import { sendWelcomeEmail, sendSubmissionConfirmation, sendApprovalEmail, sendReminderEmail } from '../services/resendEmailService';
 
 /**
  * Get notification icon based on type

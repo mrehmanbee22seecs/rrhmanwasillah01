@@ -19,7 +19,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firest
 import { auth, googleProvider, facebookProvider, db } from '../config/firebase';
 // Note: initializeUserProfile and logActivity are kept for potential future use
 // import { initializeUserProfile, logActivity as logUserActivity } from '../utils/firebaseInit';
-import { sendWelcomeEmail } from '../services/mailerSendEmailService';
+import { sendWelcomeEmail } from '../services/resendEmailService';
 import { UserProfile, UserRole, OnboardingData, ActivityLog } from '../types/user';
 import { sendWelcomeNotification } from '../utils/notificationHelpers';
 

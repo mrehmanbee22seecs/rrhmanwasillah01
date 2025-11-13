@@ -1,19 +1,16 @@
 /**
  * Enhanced Firebase Functions for Wasillah Email Automation
  * 
- * These functions integrate with MailerSend for email delivery and handle:
+ * These functions integrate with Resend for email delivery and handle:
  * 1. Submission confirmations (projects/events)
  * 2. Admin approval notifications
  * 3. Reminder scheduling and sending
  * 4. Volunteer confirmations
- * 
- * CURRENTLY DISABLED - Email features are temporarily disabled
  */
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-// Email features temporarily disabled
-// const { MailerSend, EmailParams, Sender, Recipient } = require('mailersend');
+const { Resend } = require('resend');
 
 // Initialize if not already initialized
 if (!admin.apps.length) {
@@ -23,14 +20,12 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const { Timestamp } = admin.firestore;
 
-// Initialize MailerSend - DISABLED
-// const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY || '';
-// const mailerSend = MAILERSEND_API_KEY ? new MailerSend({ apiKey: MAILERSEND_API_KEY }) : null;
-const mailerSend = null;
+// Initialize Resend
+const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-// Use MailerSend's free trial domain for testing
-// Replace with your own verified domain in production
-const SENDER_EMAIL = 'test-ywj2lpn1kvpg7oqz.mlsender.net/';
+// Sender email configuration
+const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
 const SENDER_NAME = 'Wasillah Team';
 
 // Brand styling constants
@@ -43,38 +38,33 @@ const brand = {
 };
 
 /**
- * Helper function to send email via MailerSend
- * CURRENTLY DISABLED - Email features are temporarily disabled
+ * Helper function to send email via Resend
  */
-async function sendEmailViaMailerSend(emailData) {
-  // Email features temporarily disabled
-  console.log('Email feature disabled - would have sent to:', emailData.to);
-  return false;
-
-  /* DISABLED CODE
-  if (!mailerSend) {
-    console.log('MailerSend not configured; skipping email send');
+async function sendEmailViaResend(emailData) {
+  if (!resend) {
+    console.log('Resend not configured; skipping email send');
     return false;
   }
 
   try {
-    const sentFrom = new Sender(SENDER_EMAIL, SENDER_NAME);
-    const recipients = [new Recipient(emailData.to)];
+    const { data, error } = await resend.emails.send({
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      to: [emailData.to],
+      subject: emailData.subject,
+      html: emailData.html,
+    });
 
-    const emailParams = new EmailParams()
-      .setFrom(sentFrom)
-      .setTo(recipients)
-      .setSubject(emailData.subject)
-      .setHtml(emailData.html);
+    if (error) {
+      console.error('Failed to send email via Resend:', error);
+      return false;
+    }
 
-    const result = await mailerSend.email.send(emailParams);
-    console.log('Email sent via MailerSend:', result);
+    console.log('Email sent via Resend:', data?.id);
     return true;
   } catch (error) {
-    console.error('Failed to send email via MailerSend:', error);
+    console.error('Failed to send email via Resend:', error);
     return false;
   }
-  */
 }
 
 /**
@@ -125,7 +115,7 @@ exports.onProjectSubmissionCreate = functions.firestore
       </div>
     `;
 
-    await sendEmailViaMailerSend({
+    await sendEmailViaResend({
       to: submitterEmail,
       subject: `Project Submission Received: ${title}`,
       html: emailHtml
@@ -182,7 +172,7 @@ exports.onEventSubmissionCreate = functions.firestore
       </div>
     `;
 
-    await sendEmailViaMailerSend({
+    await sendEmailViaResend({
       to: submitterEmail,
       subject: `Event Submission Received: ${title}`,
       html: emailHtml
@@ -243,7 +233,7 @@ exports.onProjectStatusChange = functions.firestore
         </div>
       `;
 
-      await sendEmailViaMailerSend({
+      await sendEmailViaResend({
         to: submitterEmail,
         subject: `Great News! Your project "${title}" has been approved`,
         html: emailHtml
@@ -305,7 +295,7 @@ exports.onEventStatusChange = functions.firestore
         </div>
       `;
 
-      await sendEmailViaMailerSend({
+      await sendEmailViaResend({
         to: submitterEmail,
         subject: `Great News! Your event "${title}" has been approved`,
         html: emailHtml
@@ -316,12 +306,403 @@ exports.onEventStatusChange = functions.firestore
   });
 
 /**
- * Scheduled function: Check for due reminders and send emails
- * Runs every 5 minutes
+ * Trigger: onCreate for project_edit_requests
+ * Sends notification email when user submits an edit request
  */
-exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(async () => {
+exports.onProjectEditRequestCreate = functions.firestore
+  .document('project_edit_requests/{docId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const requestedByEmail = data.requestedByEmail;
+    const requestedByName = data.requestedByName || 'User';
+    const submissionId = data.submissionId;
+
+    if (!requestedByEmail) {
+      console.log('No requester email found');
+      return null;
+    }
+
+    // Get the original submission title
+    let title = 'Your Submission';
+    try {
+      const submissionRef = db.collection('project_submissions').doc(submissionId);
+      const submissionSnap = await submissionRef.get();
+      if (submissionSnap.exists()) {
+        title = submissionSnap.data()?.title || title;
+      }
+    } catch (error) {
+      console.error('Error fetching submission:', error);
+    }
+
+    // Send confirmation email to requester
+    const emailHtml = `
+      <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+        <div style="background: ${brand.gradient}; padding: 30px 20px; text-align: center;">
+          <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">Edit Request Submitted</h1>
+        </div>
+        
+        <div style="background: #ffffff; padding: 30px 24px;">
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Hi <strong>${requestedByName}</strong>,
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Your edit request for the project "<strong>${title}</strong>" has been submitted and is under review by our admin team.
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            You will receive an email notification once your changes are reviewed and processed.
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+            — The Wasillah Team
+          </p>
+        </div>
+        
+        <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+          <p style="margin: 0;">Thank you for keeping your project information up to date!</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmailViaResend({
+      to: requestedByEmail,
+      subject: `Edit Request Received: ${title}`,
+      html: emailHtml
+    });
+
+    return null;
+  });
+
+/**
+ * Trigger: onCreate for event_edit_requests
+ * Sends notification email when user submits an edit request
+ */
+exports.onEventEditRequestCreate = functions.firestore
+  .document('event_edit_requests/{docId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const requestedByEmail = data.requestedByEmail;
+    const requestedByName = data.requestedByName || 'User';
+    const submissionId = data.submissionId;
+
+    if (!requestedByEmail) {
+      console.log('No requester email found');
+      return null;
+    }
+
+    // Get the original submission title
+    let title = 'Your Submission';
+    try {
+      const submissionRef = db.collection('event_submissions').doc(submissionId);
+      const submissionSnap = await submissionRef.get();
+      if (submissionSnap.exists()) {
+        title = submissionSnap.data()?.title || title;
+      }
+    } catch (error) {
+      console.error('Error fetching submission:', error);
+    }
+
+    // Send confirmation email to requester
+    const emailHtml = `
+      <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+        <div style="background: ${brand.gradient}; padding: 30px 20px; text-align: center;">
+          <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">Edit Request Submitted</h1>
+        </div>
+        
+        <div style="background: #ffffff; padding: 30px 24px;">
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Hi <strong>${requestedByName}</strong>,
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Your edit request for the event "<strong>${title}</strong>" has been submitted and is under review by our admin team.
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            You will receive an email notification once your changes are reviewed and processed.
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+            — The Wasillah Team
+          </p>
+        </div>
+        
+        <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+          <p style="margin: 0;">Thank you for keeping your event information up to date!</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmailViaResend({
+      to: requestedByEmail,
+      subject: `Edit Request Received: ${title}`,
+      html: emailHtml
+    });
+
+    return null;
+  });
+
+/**
+ * Trigger: onUpdate for project_edit_requests
+ * Sends email when edit request is approved or rejected
+ */
+exports.onProjectEditRequestStatusChange = functions.firestore
+  .document('project_edit_requests/{docId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    // Check if status changed from pending to approved or rejected
+    if (before.status === 'pending' && (after.status === 'approved' || after.status === 'rejected')) {
+      const requestedByEmail = after.requestedByEmail;
+      const requestedByName = after.requestedByName || 'User';
+      const submissionId = after.submissionId;
+      const status = after.status;
+
+      if (!requestedByEmail) {
+        console.log('No requester email found');
+        return null;
+      }
+
+      // Get the original submission title
+      let title = 'Your Submission';
+      try {
+        const submissionRef = db.collection('project_submissions').doc(submissionId);
+        const submissionSnap = await submissionRef.get();
+        if (submissionSnap.exists()) {
+          title = submissionSnap.data()?.title || title;
+        }
+      } catch (error) {
+        console.error('Error fetching submission:', error);
+      }
+
+      if (status === 'approved') {
+        // Send approval email
+        const emailHtml = `
+          <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+            <div style="background: linear-gradient(135deg, #10B981, #34D399); padding: 30px 20px; text-align: center;">
+              <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">✅ Edit Request Approved!</h1>
+            </div>
+            
+            <div style="background: #ffffff; padding: 30px 24px;">
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Hi <strong>${requestedByName}</strong>,
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Great news! Your edit request for the project "<strong>${title}</strong>" has been approved.
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Your changes are now live and visible on the platform. Thank you for keeping your project information accurate and up to date!
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                — The Wasillah Team
+              </p>
+            </div>
+            
+            <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+              <p style="margin: 0;">Keep up the great work!</p>
+            </div>
+          </div>
+        `;
+
+        await sendEmailViaResend({
+          to: requestedByEmail,
+          subject: `Edit Request Approved: ${title}`,
+          html: emailHtml
+        });
+      } else if (status === 'rejected') {
+        // Send rejection email
+        const rejectionReason = after.rejectionReason || 'No reason provided';
+        
+        const emailHtml = `
+          <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+            <div style="background: linear-gradient(135deg, #EF4444, #F87171); padding: 30px 20px; text-align: center;">
+              <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">Edit Request Update</h1>
+            </div>
+            
+            <div style="background: #ffffff; padding: 30px 24px;">
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Hi <strong>${requestedByName}</strong>,
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                We've reviewed your edit request for the project "<strong>${title}</strong>".
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Unfortunately, we cannot approve the requested changes at this time.
+              </p>
+              
+              <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 16px; margin: 20px 0; border-radius: 4px;">
+                <p style="margin: 0; color: #991B1B; font-size: 14px; line-height: 1.6;">
+                  <strong>Reason:</strong> ${rejectionReason}
+                </p>
+              </div>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                If you have questions or would like to discuss this decision, please contact our support team.
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                — The Wasillah Team
+              </p>
+            </div>
+            
+            <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+              <p style="margin: 0;">We appreciate your understanding.</p>
+            </div>
+          </div>
+        `;
+
+        await sendEmailViaResend({
+          to: requestedByEmail,
+          subject: `Edit Request Update: ${title}`,
+          html: emailHtml
+        });
+      }
+    }
+
+    return null;
+  });
+
+/**
+ * Trigger: onUpdate for event_edit_requests
+ * Sends email when edit request is approved or rejected
+ */
+exports.onEventEditRequestStatusChange = functions.firestore
+  .document('event_edit_requests/{docId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    // Check if status changed from pending to approved or rejected
+    if (before.status === 'pending' && (after.status === 'approved' || after.status === 'rejected')) {
+      const requestedByEmail = after.requestedByEmail;
+      const requestedByName = after.requestedByName || 'User';
+      const submissionId = after.submissionId;
+      const status = after.status;
+
+      if (!requestedByEmail) {
+        console.log('No requester email found');
+        return null;
+      }
+
+      // Get the original submission title
+      let title = 'Your Submission';
+      try {
+        const submissionRef = db.collection('event_submissions').doc(submissionId);
+        const submissionSnap = await submissionRef.get();
+        if (submissionSnap.exists()) {
+          title = submissionSnap.data()?.title || title;
+        }
+      } catch (error) {
+        console.error('Error fetching submission:', error);
+      }
+
+      if (status === 'approved') {
+        // Send approval email
+        const emailHtml = `
+          <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+            <div style="background: linear-gradient(135deg, #10B981, #34D399); padding: 30px 20px; text-align: center;">
+              <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">✅ Edit Request Approved!</h1>
+            </div>
+            
+            <div style="background: #ffffff; padding: 30px 24px;">
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Hi <strong>${requestedByName}</strong>,
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Great news! Your edit request for the event "<strong>${title}</strong>" has been approved.
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Your changes are now live and visible on the platform. Thank you for keeping your event information accurate and up to date!
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                — The Wasillah Team
+              </p>
+            </div>
+            
+            <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+              <p style="margin: 0;">Keep up the great work!</p>
+            </div>
+          </div>
+        `;
+
+        await sendEmailViaResend({
+          to: requestedByEmail,
+          subject: `Edit Request Approved: ${title}`,
+          html: emailHtml
+        });
+      } else if (status === 'rejected') {
+        // Send rejection email
+        const rejectionReason = after.rejectionReason || 'No reason provided';
+        
+        const emailHtml = `
+          <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+            <div style="background: linear-gradient(135deg, #EF4444, #F87171); padding: 30px 20px; text-align: center;">
+              <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">Edit Request Update</h1>
+            </div>
+            
+            <div style="background: #ffffff; padding: 30px 24px;">
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Hi <strong>${requestedByName}</strong>,
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                We've reviewed your edit request for the event "<strong>${title}</strong>".
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                Unfortunately, we cannot approve the requested changes at this time.
+              </p>
+              
+              <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 16px; margin: 20px 0; border-radius: 4px;">
+                <p style="margin: 0; color: #991B1B; font-size: 14px; line-height: 1.6;">
+                  <strong>Reason:</strong> ${rejectionReason}
+                </p>
+              </div>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+                If you have questions or would like to discuss this decision, please contact our support team.
+              </p>
+              
+              <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                — The Wasillah Team
+              </p>
+            </div>
+            
+            <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+              <p style="margin: 0;">We appreciate your understanding.</p>
+            </div>
+          </div>
+        `;
+
+        await sendEmailViaResend({
+          to: requestedByEmail,
+          subject: `Edit Request Update: ${title}`,
+          html: emailHtml
+        });
+      }
+    }
+
+    return null;
+  });
+
+/**
+ * SPARK PLAN COMPATIBLE: Trigger-based reminder checker
+ * Fires when a reminder document is updated with checkSchedule field
+ * This allows the frontend to trigger checks without requiring scheduled functions
+ */
+exports.checkDueReminders = functions.https.onCall(async (data, context) => {
+  // This function can be called by the frontend periodically or on user action
   const now = Timestamp.now();
-  const fiveMinAgo = Timestamp.fromMillis(now.toMillis() - 5 * 60 * 1000);
 
   try {
     const snapshot = await db.collection('reminders')
@@ -342,9 +723,8 @@ exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(as
         scheduledTime = reminder.scheduledAt;
       }
 
-      // Check if it's time to send
-      if (scheduledTime && scheduledTime.toMillis() <= now.toMillis() && 
-          scheduledTime.toMillis() >= fiveMinAgo.toMillis()) {
+      // Check if it's time to send (scheduled time has passed)
+      if (scheduledTime && scheduledTime.toMillis() <= now.toMillis()) {
         
         // Send reminder email
         const emailHtml = `
@@ -379,7 +759,7 @@ exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(as
           </div>
         `;
 
-        const success = await sendEmailViaMailerSend({
+        const success = await sendEmailViaResend({
           to: reminder.email,
           subject: `Reminder: ${reminder.projectName}`,
           html: emailHtml
@@ -400,10 +780,10 @@ exports.sendDueReminders = functions.pubsub.schedule('every 5 minutes').onRun(as
       console.log(`Sent ${sentCount} reminder emails`);
     }
 
-    return null;
+    return { success: true, sentCount };
   } catch (error) {
-    console.error('Error sending reminders:', error);
-    return null;
+    console.error('Error checking reminders:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to check reminders');
   }
 });
 
@@ -464,7 +844,7 @@ exports.sendReminderNow = functions.https.onCall(async (data, context) => {
       </div>
     `;
 
-    const success = await sendEmailViaMailerSend({
+    const success = await sendEmailViaResend({
       to: reminder.email,
       subject: `Reminder: ${reminder.projectName}`,
       html: emailHtml

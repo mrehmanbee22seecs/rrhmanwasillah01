@@ -11,7 +11,7 @@
 // import { Client } from '@upstash/qstash';
 import { collection, addDoc, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { sendReminderEmail } from './mailerSendEmailService';
+import { sendReminderEmail } from './resendEmailService';
 
 // Initialize QStash client - DISABLED
 // const qstashToken = (import.meta as any)?.env?.VITE_QSTASH_TOKEN;

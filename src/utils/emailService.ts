@@ -648,6 +648,10 @@ export const sendEmail = async (emailData: EmailData): Promise<boolean> => {
     }
 
     // Store in Firebase based on email subject/type
+    // Note: Disabled automatic email logging to prevent permission errors
+    // Email records are stored in their respective collections (e.g., project_submissions, event_submissions)
+    // through the submission forms and other specific workflows
+    /*
     const emailType = emailData.subject.toLowerCase();
     if (emailType.includes('volunteer')) {
       await storeResponse('volunteer', { email: emailData.to, subject: emailData.subject, content: emailData.html });
@@ -662,6 +666,7 @@ export const sendEmail = async (emailData: EmailData): Promise<boolean> => {
     } else if (emailType.includes('submission')) {
       await storeResponse('submission', { email: emailData.to, subject: emailData.subject, content: emailData.html });
     }
+    */
 
     // In a real application, this would call your backend API
     // For now, also log the email data for visibility

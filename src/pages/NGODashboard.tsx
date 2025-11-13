@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import RemindersPanel from '../components/RemindersPanel';
 import { ProjectSubmission, EventSubmission, ProjectApplicationEntry, EventRegistrationEntry } from '../types/submissions';
 
 interface NGOStats {
@@ -542,6 +543,11 @@ const NGODashboard = () => {
                   <div className="text-xs text-gray-600">Get help with your projects</div>
                 </Link>
               </div>
+            </div>
+
+            {/* My Reminders */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <RemindersPanel />
             </div>
           </div>
         </div>
