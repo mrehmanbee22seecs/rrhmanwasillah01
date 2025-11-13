@@ -691,17 +691,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       const editRequest = editRequestSnap.data();
       const submissionId = editRequest.submissionId;
       
+      // Get the current submission to preserve its audit trail
+      const submissionSnap = await getDoc(submissionRef);
+      const currentAuditTrail = submissionSnap.exists() ? (submissionSnap.data().auditTrail || []) : [];
+      
       // Update the original submission with edited data
-      const submissionRef = doc(db, submissionCollectionName, submissionId);
       await updateDoc(submissionRef, {
         ...editRequest.editedData,
         updatedAt: serverTimestamp(),
         auditTrail: [
-          ...(editRequest.editedData.auditTrail || []),
+          ...currentAuditTrail,
           {
             action: 'Edit request approved',
             performedBy: currentUser?.email || 'admin',
-            performedAt: serverTimestamp(),
+            performedAt: new Date().toISOString(),
             details: `Changes approved from edit request by ${editRequest.requestedByName}`,
           }
         ]
