@@ -701,6 +701,7 @@ exports.onEventEditRequestStatusChange = functions.firestore
  * This allows the frontend to trigger checks without requiring scheduled functions
  */
 exports.checkDueReminders = functions.https.onCall(async (data, context) => {
+  // CORS is handled automatically by Firebase for onCall functions
   // This function can be called by the frontend periodically or on user action
   const now = Timestamp.now();
 
