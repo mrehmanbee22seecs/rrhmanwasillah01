@@ -1,197 +1,158 @@
-# GitHub Actions Auto-Deployment Setup Guide
+# GitHub Actions Auto-Deployment - REMOVED
 
-This guide explains how to set up automatic Firebase Functions deployment using GitHub Actions.
+**⚠️ IMPORTANT: The GitHub Actions workflow for Firebase Functions has been removed.**
 
-## What This Does
+This project now uses **manual CLI deployment** for Firebase Functions instead of automated GitHub Actions deployment.
 
-The workflow automatically deploys Firebase Functions whenever you push changes to the `main` branch that affect:
-- Files in the `functions/` directory
-- The workflow file itself
+## Why Changed to CLI Deployment
 
-## Prerequisites
+The GitHub Actions workflow was not working reliably, so we've reverted to the default Firebase CLI deployment method, which is more direct and easier to troubleshoot.
 
-Before the workflow can run, you need to set up GitHub Secrets with your Firebase credentials.
+## How to Deploy Firebase Functions (CLI Method)
 
-## Setup Steps
+### Prerequisites
 
-### Step 1: Get Firebase Service Account Key (No CLI Required!)
+1. **Install Firebase CLI** (if not already installed):
+   ```bash
+   npm install -g firebase-tools
+   ```
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project (e.g., `wasilah-new`)
-3. Click **Project Settings** (gear icon) → **Service Accounts** tab
-4. Click **Generate New Private Key** button
-5. Download the JSON file (keep it secure!)
-6. Open the JSON file and copy **ALL** the content
+2. **Login to Firebase**:
+   ```bash
+   firebase login
+   ```
 
-### Step 2: Configure GitHub Secrets
+3. **Select your project**:
+   ```bash
+   firebase use wasilah-new
+   ```
 
-1. Go to your GitHub repository: `https://github.com/mrehmanbee22seecs/rrhmanwasillah01`
-2. Click **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret** and add these three secrets:
+### Deploy Functions
 
-#### Secret 1: FIREBASE_SERVICE_ACCOUNT
-- **Name**: `FIREBASE_SERVICE_ACCOUNT`
-- **Value**: Paste the **ENTIRE** content of the JSON file you downloaded
-- **Description**: Firebase service account for deployment
+#### Option 1: Deploy Functions Only
+```bash
+firebase deploy --only functions
+```
 
-#### Secret 2: RESEND_API_KEY
-- **Name**: `RESEND_API_KEY`
-- **Value**: `re_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve`
-- **Description**: Resend API key for sending emails
+#### Option 2: Deploy with npm script
+```bash
+cd functions
+npm run deploy
+```
 
-#### Secret 3: RESEND_SENDER_EMAIL
-- **Name**: `RESEND_SENDER_EMAIL`
-- **Value**: `noreply@wasillah.live`
-- **Description**: Email address to send from (using verified wasillah.live domain)
+### Configure Environment Variables
 
-### Step 3: Verify Setup
+Before deploying, make sure to set the required configuration:
 
-After adding secrets:
+```bash
+firebase functions:config:set resend.api_key="your_resend_api_key"
+firebase functions:config:set resend.sender_email="noreply@wasillah.live"
+```
 
-1. Go to **Actions** tab in your GitHub repository
-2. You should see the "Deploy Firebase Functions" workflow
-3. Merge this PR to `main` branch
-4. The workflow will run automatically!
-
-## How It Works
-
-### Automatic Trigger
-- Workflow runs when you push to `main` branch
-- Only triggers if files in `functions/` directory change
-- This saves GitHub Actions minutes
-
-### Manual Trigger
-You can also manually trigger deployment:
-1. Go to **Actions** tab
-2. Select "Deploy Firebase Functions"
-3. Click **Run workflow**
-4. Choose branch (usually `main`)
-5. Click **Run workflow**
-
-## Workflow Steps
-
-The workflow performs these steps automatically:
-
-1. **Checkout code** - Gets latest code from repository
-2. **Setup Node.js** - Installs Node.js 18
-3. **Install Firebase CLI** - Installs `firebase-tools`
-4. **Install Dependencies** - Runs `npm ci` in functions directory
-5. **Authenticate with Firebase** - Uses service account JSON for authentication
-6. **Set Firebase Config** - Configures Resend API key and sender email
-7. **Deploy Functions** - Deploys all functions to Firebase
-8. **Verify Deployment** - Lists deployed functions
+To verify configuration:
+```bash
+firebase functions:config:get
+```
 
 ## Monitoring Deployments
 
-### View Workflow Runs
-1. Go to **Actions** tab in your repository
-2. Click on a workflow run to see details
-3. Expand steps to see logs
-
 ### Check Deployment Status
-- ✅ Green checkmark = Successful deployment
-- ❌ Red X = Failed deployment (check logs)
-- 🟡 Yellow circle = In progress
+
+After deploying, verify functions are deployed:
+
+```bash
+firebase functions:list
+```
+
+### View Function Logs
+
+```bash
+firebase functions:log
+```
 
 ### Common Issues
 
-**Issue**: "Service Account Authentication Failed"
-- **Solution**: Verify the JSON content in `FIREBASE_SERVICE_ACCOUNT` secret is complete and valid
+**Issue**: "Not logged in"
+- **Solution**: Run `firebase login` to authenticate
 
 **Issue**: "Permission denied"
-- **Solution**: Make sure the service account has "Firebase Admin SDK Administrator Service Agent" role in Firebase Console → Project Settings → Service Accounts
+- **Solution**: Make sure you're using the correct Firebase project with `firebase use`
 
 **Issue**: "Function deployment failed"
-- **Solution**: Check function logs and syntax errors in the Actions logs
+- **Solution**: Check function logs and syntax errors. Run `npm install` in the functions directory first.
 
-## Benefits
+**Issue**: "Environment config not set"
+- **Solution**: Set the required config variables using `firebase functions:config:set`
 
-✅ **No Manual Deployment** - Push to main, functions auto-deploy
-✅ **Consistent Deployments** - Same process every time
-✅ **Version Control** - All changes tracked in Git
-✅ **Automated Testing** - Can add tests before deployment
-✅ **Rollback Support** - Git history allows easy rollbacks
-✅ **Team Collaboration** - Everyone can deploy via PR merge
+## Benefits of CLI Deployment
 
-## Cost
+✅ **Direct Control** - Deploy exactly when you want
+✅ **Immediate Feedback** - See deployment results in real-time
+✅ **Easier Troubleshooting** - Direct access to error messages
+✅ **No CI/CD Setup** - No need to configure GitHub secrets
+✅ **Works Offline** - Can deploy from local environment
 
-GitHub Actions is **FREE** for public repositories!
+## Security Best Practices
 
-For private repositories:
-- Free tier: 2,000 minutes/month
-- This workflow uses ~2-3 minutes per deployment
-- ~600+ deployments/month on free tier
-
-## Security
-
-### Why This is Secure
-
-1. **Secrets are encrypted** - GitHub encrypts all secrets
-2. **No secrets in code** - Never commit tokens to Git
-3. **Limited access** - Only repository admins can view/edit secrets
-4. **Audit trail** - All deployments logged in Actions
-
-### Best Practices
-
-- ✅ Use repository secrets (not environment secrets)
-- ✅ Rotate Firebase token periodically
-- ✅ Limit repository access to trusted users
-- ✅ Review Actions logs regularly
+- ✅ Keep Firebase CLI up to date
+- ✅ Only deploy from trusted environments
+- ✅ Never commit Firebase config files with secrets
+- ✅ Use environment variables for sensitive data
 - ❌ Never commit tokens to Git
-- ❌ Don't share tokens via chat/email
+- ❌ Don't share Firebase login credentials
 
 ## Troubleshooting
 
 ### Deployment Fails
 
-1. Check Actions logs for error messages
-2. Verify all secrets are set correctly
-3. Test deployment locally: `firebase deploy --only functions`
-4. Check Firebase console for quota limits
+1. Check error messages in terminal
+2. Verify you're logged in: `firebase login`
+3. Verify project is selected: `firebase use`
+4. Install dependencies: `cd functions && npm install`
+5. Check Firebase console for quota limits
 
 ### Functions Not Updating
 
 1. Clear Firebase cache: `firebase deploy --only functions --force`
-2. Check if correct branch is deployed
-3. Verify functions code has no syntax errors
+2. Verify functions code has no syntax errors
+3. Check that dependencies are installed in functions directory
 
-### Can't Find Workflow
+### Installation Issues
 
-1. Make sure workflow file is in `.github/workflows/`
-2. Check workflow file has `.yml` extension
-3. Verify YAML syntax is correct
-
-## Alternative: Manual Deployment
-
-If you prefer manual deployment, you can still use:
-
+If Firebase CLI won't install:
 ```bash
-firebase functions:config:set resend.api_key="re_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve"
-firebase functions:config:set resend.sender_email="noreply@wasillah.live"
-firebase deploy --only functions
+# Try with sudo (Linux/Mac)
+sudo npm install -g firebase-tools
+
+# Or use npx (no installation needed)
+npx firebase-tools deploy --only functions
 ```
 
-## Next Steps
+## Quick Deployment Checklist
 
-After setup:
-
-1. ✅ Merge this PR to main
-2. ✅ Watch workflow run in Actions tab
-3. ✅ Verify functions deployed: `firebase functions:list`
-4. ✅ Test email functionality
-5. ✅ Check Firebase logs: `firebase functions:log`
+1. ✅ Install Firebase CLI: `npm install -g firebase-tools`
+2. ✅ Login: `firebase login`
+3. ✅ Select project: `firebase use wasilah-new`
+4. ✅ Set config (first time only):
+   ```bash
+   firebase functions:config:set resend.api_key="your_key"
+   firebase functions:config:set resend.sender_email="noreply@wasillah.live"
+   ```
+5. ✅ Install dependencies: `cd functions && npm install`
+6. ✅ Deploy: `firebase deploy --only functions`
+7. ✅ Verify: `firebase functions:list`
 
 ## Support
 
 If you encounter issues:
-- Check Actions logs in GitHub
-- Review Firebase Functions logs
+- Review Firebase Functions logs: `firebase functions:log`
 - See `EMAIL_SETUP_GUIDE.md` for email-specific help
+- Check Firebase console for deployment status
 
 ---
 
-**Status**: Automated Deployment Ready ✅
-**Setup Time**: ~5 minutes (one-time)
-**Maintenance**: None (fully automated)
+**Status**: CLI Deployment ✅
+**Deployment Method**: Manual via Firebase CLI
+**Last Updated**: November 13, 2025
 
-**Created**: November 13, 2025
+**Note**: The GitHub Actions workflow has been removed. All deployments must now be done manually using Firebase CLI.
