@@ -48,18 +48,18 @@ jobs:
         run: |
           echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > firebase-service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/firebase-service-account.json"
-          firebase functions:config:set resend.api_key="${RESEND_API_KEY}"
-          firebase functions:config:set resend.sender_email="${RESEND_SENDER_EMAIL}"
+          firebase functions:config:set resend.api_key="${RESEND_API_KEY}" --project wasilah-new
+          firebase functions:config:set resend.sender_email="${RESEND_SENDER_EMAIL}" --project wasilah-new
 
       - name: Deploy to Firebase
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
-          firebase deploy --only functions --force
+          firebase deploy --only functions --force --project wasilah-new
 
       - name: Verify Deployment
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
           echo "✅ Functions deployed successfully!"
-          firebase functions:list
+          firebase functions:list --project wasilah-new
