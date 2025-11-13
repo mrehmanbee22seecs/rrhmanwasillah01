@@ -61,5 +61,5 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
-          echo "✅ Functions deployed successfully!"
+          echo "✅ Functions deployed successfully to project: wasilah-new"
           firebase functions:list --project wasilah-new
