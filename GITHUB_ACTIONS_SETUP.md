@@ -41,8 +41,8 @@ Before the workflow can run, you need to set up GitHub Secrets with your Firebas
 
 #### Secret 3: RESEND_SENDER_EMAIL
 - **Name**: `RESEND_SENDER_EMAIL`
-- **Value**: `onboarding@resend.dev`
-- **Description**: Email address to send from
+- **Value**: `noreply@wasillah.live`
+- **Description**: Email address to send from (using verified wasillah.live domain)
 
 ### Step 3: Verify Setup
 
@@ -167,7 +167,7 @@ If you prefer manual deployment, you can still use:
 
 ```bash
 firebase functions:config:set resend.api_key="re_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve"
-firebase functions:config:set resend.sender_email="onboarding@resend.dev"
+firebase functions:config:set resend.sender_email="noreply@wasillah.live"
 firebase deploy --only functions
 ```
 

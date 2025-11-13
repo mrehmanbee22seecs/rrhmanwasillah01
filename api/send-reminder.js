@@ -26,7 +26,7 @@ const db = getFirestore();
 const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
 const resend = new Resend(RESEND_API_KEY);
 
-const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
+const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || 'noreply@wasillah.live';
 const SENDER_NAME = 'Wasillah Team';
 
 // Brand styling for emails

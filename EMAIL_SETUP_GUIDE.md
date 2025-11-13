@@ -8,7 +8,7 @@ Your API key is **VALID** but emails fail due to **frontend CORS issues**.
 
 ```bash
 firebase functions:config:set resend.api_key="re_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve"
-firebase functions:config:set resend.sender_email="onboarding@resend.dev"
+firebase functions:config:set resend.sender_email="noreply@wasillah.live"
 firebase deploy --only functions
 ```
 
@@ -47,8 +47,8 @@ User Action → Firestore Document → Cloud Function Trigger → Resend API →
 # Set Resend API key in Firebase config
 firebase functions:config:set resend.api_key="re_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve"
 
-# Set sender email
-firebase functions:config:set resend.sender_email="onboarding@resend.dev"
+# Set sender email (using verified wasillah.live domain)
+firebase functions:config:set resend.sender_email="noreply@wasillah.live"
 
 # Verify configuration
 firebase functions:config:get

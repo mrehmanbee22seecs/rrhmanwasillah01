@@ -24,8 +24,8 @@ const { Timestamp } = admin.firestore;
 const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-// Sender email configuration
-const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
+// Sender email configuration - using verified wasillah.live domain
+const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || 'noreply@wasillah.live';
 const SENDER_NAME = 'Wasillah Team';
 
 // Brand styling constants
