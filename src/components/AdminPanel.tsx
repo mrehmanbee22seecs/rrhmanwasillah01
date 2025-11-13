@@ -127,28 +127,36 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const fetchResponses = async () => {
     setLoading(true);
     try {
-      const collections = ['volunteers', 'contacts', 'chats', 'events', 'projects'];
+      // Only use collections that exist and have proper rules
+      const collections = ['volunteer_applications', 'contact_messages'];
       const allResponses: Response[] = [];
 
       for (const collectionName of collections) {
-        const q = query(collection(db, collectionName), orderBy('timestamp', 'desc'));
-        const querySnapshot = await getDocs(q);
-        
-        querySnapshot.forEach((doc) => {
-          allResponses.push({
-            id: doc.id,
-            type: collectionName.slice(0, -1) as any,
-            data: doc.data(),
-            timestamp: doc.data().timestamp,
-            status: doc.data().status || 'new'
+        try {
+          const q = query(collection(db, collectionName), orderBy('timestamp', 'desc'));
+          const querySnapshot = await getDocs(q);
+          
+          querySnapshot.forEach((doc) => {
+            allResponses.push({
+              id: doc.id,
+              type: collectionName.slice(0, -1) as any,
+              data: doc.data(),
+              timestamp: doc.data().timestamp,
+              status: doc.data().status || 'new'
+            });
           });
-        });
+        } catch (collectionError) {
+          console.warn(`Could not fetch ${collectionName}:`, collectionError);
+          // Continue with other collections even if one fails
+        }
       }
 
       allResponses.sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds);
       setResponses(allResponses);
     } catch (error) {
       console.error('Error fetching responses:', error);
+      // Set empty array instead of leaving it in error state
+      setResponses([]);
     } finally {
       setLoading(false);
     }

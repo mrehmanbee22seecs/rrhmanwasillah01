@@ -223,7 +223,17 @@ const RemindersPanel = () => {
   const startEdit = (reminder: Reminder) => {
     setEditingReminder(reminder);
     // Parse the scheduled time
-    const scheduledDate = reminder.scheduledAt.toDate();
+    let scheduledDate: Date;
+    if (reminder.scheduledAt?.toDate) {
+      scheduledDate = reminder.scheduledAt.toDate();
+    } else if (reminder.scheduledAt instanceof Date) {
+      scheduledDate = reminder.scheduledAt;
+    } else if (reminder.scheduledAt?.seconds) {
+      scheduledDate = new Date(reminder.scheduledAt.seconds * 1000);
+    } else {
+      scheduledDate = new Date();
+    }
+    
     setFormData({
       projectName: reminder.projectName,
       message: reminder.message,
@@ -246,13 +256,35 @@ const RemindersPanel = () => {
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate();
+    
+    let date: Date;
+    if (timestamp.toDate) {
+      date = timestamp.toDate();
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (timestamp.seconds) {
+      date = new Date(timestamp.seconds * 1000);
+    } else {
+      return 'N/A';
+    }
+    
     return date.toLocaleString();
   };
 
   const isOverdue = (reminder: Reminder) => {
     if (reminder.sent) return false;
-    const scheduledDate = reminder.scheduledAt.toDate();
+    
+    let scheduledDate: Date;
+    if (reminder.scheduledAt?.toDate) {
+      scheduledDate = reminder.scheduledAt.toDate();
+    } else if (reminder.scheduledAt instanceof Date) {
+      scheduledDate = reminder.scheduledAt;
+    } else if (reminder.scheduledAt?.seconds) {
+      scheduledDate = new Date(reminder.scheduledAt.seconds * 1000);
+    } else {
+      return false;
+    }
+    
     return scheduledDate < new Date();
   };
 
