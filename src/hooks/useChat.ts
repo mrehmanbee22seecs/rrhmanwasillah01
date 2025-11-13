@@ -107,8 +107,12 @@ export function useChat(userId: string | null, chatId?: string) {
         chatList.push({
           id: doc.id,
           title: data.title,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          lastActivityAt: data.lastActivityAt?.toDate() || new Date(),
+          createdAt: (data.createdAt?.toDate && typeof data.createdAt.toDate === 'function') 
+            ? data.createdAt.toDate() 
+            : new Date(),
+          lastActivityAt: (data.lastActivityAt?.toDate && typeof data.lastActivityAt.toDate === 'function') 
+            ? data.lastActivityAt.toDate() 
+            : new Date(),
           isActive: data.isActive ?? true,
           takeoverBy: data.takeoverBy,
         });
@@ -157,7 +161,9 @@ export function useChat(userId: string | null, chatId?: string) {
           id: doc.id,
           sender: data.sender,
           text: data.text,
-          createdAt: data.createdAt?.toDate() || new Date(),
+          createdAt: (data.createdAt?.toDate && typeof data.createdAt.toDate === 'function') 
+            ? data.createdAt.toDate() 
+            : new Date(),
           meta: data.meta,
         });
       });

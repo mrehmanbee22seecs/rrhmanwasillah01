@@ -181,7 +181,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         year: 'numeric',
       });
     }
-    if (date.toDate) {
+    if (date.toDate && typeof date.toDate === 'function') {
       return date.toDate().toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',

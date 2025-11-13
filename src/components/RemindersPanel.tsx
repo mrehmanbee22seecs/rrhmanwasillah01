@@ -224,7 +224,7 @@ const RemindersPanel = () => {
     setEditingReminder(reminder);
     // Parse the scheduled time
     let scheduledDate: Date;
-    if (reminder.scheduledAt?.toDate) {
+    if (reminder.scheduledAt?.toDate && typeof reminder.scheduledAt.toDate === 'function') {
       scheduledDate = reminder.scheduledAt.toDate();
     } else if (reminder.scheduledAt instanceof Date) {
       scheduledDate = reminder.scheduledAt;
@@ -258,7 +258,7 @@ const RemindersPanel = () => {
     if (!timestamp) return 'N/A';
     
     let date: Date;
-    if (timestamp.toDate) {
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
       date = timestamp.toDate();
     } else if (timestamp instanceof Date) {
       date = timestamp;
@@ -275,7 +275,7 @@ const RemindersPanel = () => {
     if (reminder.sent) return false;
     
     let scheduledDate: Date;
-    if (reminder.scheduledAt?.toDate) {
+    if (reminder.scheduledAt?.toDate && typeof reminder.scheduledAt.toDate === 'function') {
       scheduledDate = reminder.scheduledAt.toDate();
     } else if (reminder.scheduledAt instanceof Date) {
       scheduledDate = reminder.scheduledAt;
@@ -540,8 +540,20 @@ interface ReminderCardProps {
 const ReminderCard: React.FC<ReminderCardProps> = ({ reminder, onDelete, onEdit, onSendNow, isOverdue }) => {
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate();
-    return date.toLocaleString();
+    try {
+      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+        const date = timestamp.toDate();
+        return date.toLocaleString();
+      } else if (timestamp instanceof Date) {
+        return timestamp.toLocaleString();
+      } else if (timestamp.seconds) {
+        return new Date(timestamp.seconds * 1000).toLocaleString();
+      }
+      return 'N/A';
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
+    }
   };
 
   return (
