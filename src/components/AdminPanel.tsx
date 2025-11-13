@@ -2076,7 +2076,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           {/* Analytics Tab */}
           {activeTab === 'analytics' && (
             <div className="space-y-4">
-              <AnalyticsOverview refreshTrigger={Date.now()} />
+              <AnalyticsOverview />
             </div>
           )}
 
