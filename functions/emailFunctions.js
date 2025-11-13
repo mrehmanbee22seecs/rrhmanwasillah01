@@ -866,4 +866,106 @@ exports.sendReminderNow = functions.https.onCall(async (data, context) => {
   }
 });
 
+/**
+ * SPARK PLAN COMPATIBLE: Send welcome email when user is created
+ * Trigger: onCreate for users collection
+ */
+exports.onUserCreate = functions.firestore
+  .document('users/{userId}')
+  .onCreate(async (snap, context) => {
+    const userData = snap.data();
+    const email = userData.email;
+    const name = userData.displayName || userData.firstName || 'User';
+    const role = userData.role || 'volunteer';
+
+    if (!email) {
+      console.log('No email found for user');
+      return null;
+    }
+
+    // Role-specific welcome messages
+    const roleMessages = {
+      student: {
+        title: 'Welcome, Student!',
+        message: 'Join CSR projects, build your portfolio, and make an impact while learning. Explore opportunities that match your interests and skills.',
+        cta: 'Browse CSR Projects',
+        ctaLink: '/projects'
+      },
+      ngo: {
+        title: 'Welcome, NGO Partner!',
+        message: 'Post projects, manage volunteers, and track your organization\'s impact. Start creating your first project and connect with passionate volunteers.',
+        cta: 'Create Your First Project',
+        ctaLink: '/create-submission?type=project'
+      },
+      volunteer: {
+        title: 'Welcome, Volunteer!',
+        message: 'Find volunteer opportunities, join projects, and make a difference in your community. Start your journey of impact today.',
+        cta: 'Explore Opportunities',
+        ctaLink: '/projects'
+      },
+      admin: {
+        title: 'Welcome, Admin!',
+        message: 'Manage the platform, moderate content, and ensure quality. Access the admin panel to get started.',
+        cta: 'Go to Admin Panel',
+        ctaLink: '/dashboard'
+      }
+    };
+
+    const roleContent = roleMessages[role] || roleMessages['volunteer'];
+
+    const emailHtml = `
+      <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+        <div style="background: ${brand.gradient}; padding: 30px 20px; text-align: center;">
+          <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">${roleContent.title}</h1>
+        </div>
+        
+        <div style="background: #ffffff; padding: 30px 24px;">
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Hi <strong>${name}</strong>,
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Welcome to Wasillah! We're excited to have you on board. 
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            ${roleContent.message}
+          </p>
+          
+          ${role === 'student' ? `
+          <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 20px; margin: 24px 0; border-radius: 8px;">
+            <p style="margin: 0; color: #1E40AF; font-size: 15px; line-height: 1.6;">
+              <strong>💡 Tip for Students:</strong> Complete your profile to get personalized project recommendations based on your skills and interests.
+            </p>
+          </div>
+          ` : ''}
+
+          ${role === 'ngo' ? `
+          <div style="background: #ECFDF5; border-left: 4px solid #10B981; padding: 20px; margin: 24px 0; border-radius: 8px;">
+            <p style="margin: 0; color: #065F46; font-size: 15px; line-height: 1.6;">
+              <strong>💡 Tip for NGOs:</strong> Complete your organization profile to build trust with volunteers and increase project visibility.
+            </p>
+          </div>
+          ` : ''}
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+            — The Wasillah Team
+          </p>
+        </div>
+        
+        <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+          <p style="margin: 0;">Thank you for joining our community!</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmailViaResend({
+      to: email,
+      subject: `Welcome to Wasillah, ${name}!`,
+      html: emailHtml
+    });
+
+    return null;
+  });
+
 module.exports = exports;

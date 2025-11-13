@@ -243,17 +243,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
       role: userRole
     });
     
-    // Send role-specific welcome email via MailerSend
-    try {
-      await sendWelcomeEmail({
-        email: email,
-        name: displayName,
-        role: userRole
-      });
-    } catch (error) {
-      console.error('Failed to send welcome email:', error);
-      // Don't fail the signup if email fails
-    }
+    // Welcome email will be sent automatically via Cloud Function
+    // when the user document is created in Firestore
+    // See functions/emailFunctions.js for implementation
   };
 
   const login = async (email: string, password: string) => {
