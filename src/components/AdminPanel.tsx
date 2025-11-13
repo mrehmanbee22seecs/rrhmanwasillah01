@@ -127,13 +127,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const fetchResponses = async () => {
     setLoading(true);
     try {
-      // Only use collections that exist and have proper rules
-      const collections = ['volunteer_applications', 'contact_messages'];
-      const allResponses: Response[] = [];
-
-      for (const collectionName of collections) {
-        try {
-          const q = query(collection(db, collectionName), orderBy('timestamp', 'desc'));
       // Use correct collection names that exist in Firestore with proper admin read permissions
       const collections = [
         { name: 'volunteer_applications', type: 'volunteer' },
@@ -149,9 +142,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           querySnapshot.forEach((doc) => {
             allResponses.push({
               id: doc.id,
-              type: collectionName.slice(0, -1) as any,
-              data: doc.data(),
-              timestamp: doc.data().timestamp,
               type: type as any,
               data: doc.data(),
               timestamp: doc.data().submittedAt || doc.data().timestamp,
@@ -159,9 +149,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             });
           });
         } catch (collectionError) {
-          console.warn(`Could not fetch ${collectionName}:`, collectionError);
-          // Continue with other collections even if one fails
           console.warn(`Could not fetch ${name}:`, collectionError);
+          // Continue with other collections even if one fails
         }
       }
 
