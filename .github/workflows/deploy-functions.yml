@@ -13,7 +13,7 @@ jobs:
   deploy:
     name: Deploy to Firebase
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,14 +33,17 @@ jobs:
           cd functions
           npm ci
 
-      - name: Authenticate with Firebase using Service Account
+      # ✅ Authenticate using service account (no firebase login needed)
+      - name: Authenticate with Firebase Service Account
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
+          echo "✅ Firebase authentication setup complete."
 
-      - name: Set Firebase Config
+      # ✅ Set runtime config values for functions (Resend API info)
+      - name: Set Firebase Functions Config
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_SENDER_EMAIL: ${{ secrets.RESEND_SENDER_EMAIL }}
@@ -48,15 +51,18 @@ jobs:
         run: |
           echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > firebase-service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/firebase-service-account.json"
-          firebase functions:config:set resend.api_key="${RESEND_API_KEY}" --project wasilah-new
-          firebase functions:config:set resend.sender_email="${RESEND_SENDER_EMAIL}" --project wasilah-new
+          echo "⚙️ Setting Firebase environment config..."
+          firebase functions:config:set resend.api_key="${RESEND_API_KEY}" resend.sender_email="${RESEND_SENDER_EMAIL}" --project wasilah-new
 
-      - name: Deploy to Firebase
+      # ✅ Deploy to Firebase
+      - name: Deploy Firebase Functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
+          echo "🚀 Deploying to Firebase project: wasilah-new ..."
           firebase deploy --only functions --force --project wasilah-new
 
+      # ✅ Verify deployment
       - name: Verify Deployment
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
