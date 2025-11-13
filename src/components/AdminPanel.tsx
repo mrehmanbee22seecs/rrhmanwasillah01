@@ -691,6 +691,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       const editRequest = editRequestSnap.data();
       const submissionId = editRequest.submissionId;
       
+      // Create reference to the original submission
+      const submissionRef = doc(db, submissionCollectionName, submissionId);
+      
       // Get the current submission to preserve its audit trail
       const submissionSnap = await getDoc(submissionRef);
       const currentAuditTrail = submissionSnap.exists() ? (submissionSnap.data().auditTrail || []) : [];
