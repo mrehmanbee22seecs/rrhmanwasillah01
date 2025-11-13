@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, addDoc, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { ProjectSubmission, EventSubmission, SubmissionStatus, ProjectApplicationEntry, EventRegistrationEntry, VolunteerApplicationEntry, NewsletterSubscriberEntry, ProjectApplicationEditRequest, EventRegistrationEditRequest } from '../types/submissions';
+import { ProjectSubmission, EventSubmission, SubmissionStatus, ProjectApplicationEntry, EventRegistrationEntry, VolunteerApplicationEntry, NewsletterSubscriberEntry, ProjectApplicationEditRequest, EventRegistrationEditRequest, ProjectSubmissionEditRequest, EventSubmissionEditRequest } from '../types/submissions';
 import { sendEmail, formatSubmissionStatusUpdateEmail } from '../utils/emailService';
 import { migrateApprovedSubmissions } from '../utils/migrateVisibility';
 import ChatsPanel from './Admin/ChatsPanel';
@@ -66,6 +66,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const [newsletterSubscribers, setNewsletterSubscribers] = useState<NewsletterSubscriberEntry[]>([]);
   const [projectEditRequests, setProjectEditRequests] = useState<ProjectApplicationEditRequest[]>([]);
   const [eventEditRequests, setEventEditRequests] = useState<EventRegistrationEditRequest[]>([]);
+  const [projectSubmissionEditRequests, setProjectSubmissionEditRequests] = useState<ProjectSubmissionEditRequest[]>([]);
+  const [eventSubmissionEditRequests, setEventSubmissionEditRequests] = useState<EventSubmissionEditRequest[]>([]);
   const [editableContent, setEditableContent] = useState<EditableContent[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingContent, setEditingContent] = useState<string | null>(null);
@@ -291,7 +293,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
 
   const fetchEditRequests = async () => {
     try {
-      // Fetch project edit requests
+      // Fetch project application edit requests
       const projEditQ = query(collection(db, 'project_application_edit_requests'), orderBy('submittedAt', 'desc'));
       const projEditSnap = await getDocs(projEditQ);
       const projEditReqs: ProjectApplicationEditRequest[] = [];
@@ -300,7 +302,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       });
       setProjectEditRequests(projEditReqs);
 
-      // Fetch event edit requests
+      // Fetch event registration edit requests
       const evtEditQ = query(collection(db, 'event_registration_edit_requests'), orderBy('submittedAt', 'desc'));
       const evtEditSnap = await getDocs(evtEditQ);
       const evtEditReqs: EventRegistrationEditRequest[] = [];
@@ -308,6 +310,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
         evtEditReqs.push({ id: d.id, ...d.data() } as EventRegistrationEditRequest);
       });
       setEventEditRequests(evtEditReqs);
+
+      // Fetch project submission edit requests (for editing projects themselves)
+      const projSubEditQ = query(collection(db, 'project_edit_requests'), orderBy('requestedAt', 'desc'));
+      const projSubEditSnap = await getDocs(projSubEditQ);
+      const projSubEditReqs: ProjectSubmissionEditRequest[] = [];
+      projSubEditSnap.forEach((d) => {
+        projSubEditReqs.push({ id: d.id, ...d.data() } as ProjectSubmissionEditRequest);
+      });
+      setProjectSubmissionEditRequests(projSubEditReqs);
+
+      // Fetch event submission edit requests (for editing events themselves)
+      const evtSubEditQ = query(collection(db, 'event_edit_requests'), orderBy('requestedAt', 'desc'));
+      const evtSubEditSnap = await getDocs(evtSubEditQ);
+      const evtSubEditReqs: EventSubmissionEditRequest[] = [];
+      evtSubEditSnap.forEach((d) => {
+        evtSubEditReqs.push({ id: d.id, ...d.data() } as EventSubmissionEditRequest);
+      });
+      setEventSubmissionEditRequests(evtSubEditReqs);
     } catch (e) {
       console.error('Error fetching edit requests', e);
     }
@@ -646,6 +666,90 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       await fetchEditRequests();
     } catch (error) {
       console.error('Error rejecting edit request:', error);
+      alert('Error rejecting edit request. Please try again.');
+    }
+  };
+
+  const handleApproveSubmissionEditRequest = async (requestId: string, type: 'project' | 'event') => {
+    if (!confirm('Approve these changes? The original submission will be updated.')) {
+      return;
+    }
+
+    try {
+      const editRequestCollectionName = type === 'project' ? 'project_edit_requests' : 'event_edit_requests';
+      const submissionCollectionName = type === 'project' ? 'project_submissions' : 'event_submissions';
+      
+      // Get the edit request
+      const editRequestRef = doc(db, editRequestCollectionName, requestId);
+      const editRequestSnap = await getDoc(editRequestRef);
+      
+      if (!editRequestSnap.exists()) {
+        alert('Edit request not found');
+        return;
+      }
+
+      const editRequest = editRequestSnap.data();
+      const submissionId = editRequest.submissionId;
+      
+      // Create reference to the original submission
+      const submissionRef = doc(db, submissionCollectionName, submissionId);
+      
+      // Get the current submission to preserve its audit trail
+      const submissionSnap = await getDoc(submissionRef);
+      const currentAuditTrail = submissionSnap.exists() ? (submissionSnap.data().auditTrail || []) : [];
+      
+      // Update the original submission with edited data
+      await updateDoc(submissionRef, {
+        ...editRequest.editedData,
+        updatedAt: serverTimestamp(),
+        auditTrail: [
+          ...currentAuditTrail,
+          {
+            action: 'Edit request approved',
+            performedBy: currentUser?.email || 'admin',
+            performedAt: new Date().toISOString(),
+            details: `Changes approved from edit request by ${editRequest.requestedByName}`,
+          }
+        ]
+      });
+
+      // Mark edit request as approved
+      await updateDoc(editRequestRef, {
+        status: 'approved',
+        reviewedAt: serverTimestamp(),
+        reviewedBy: currentUser?.email || 'admin',
+      });
+
+      alert('Edit request approved and changes applied!');
+      await fetchEditRequests();
+      await fetchSubmissions();
+    } catch (error) {
+      console.error('Error approving submission edit request:', error);
+      alert('Error approving edit request. Please try again.');
+    }
+  };
+
+  const handleRejectSubmissionEditRequest = async (requestId: string, type: 'project' | 'event', reason: string) => {
+    if (!reason.trim()) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      const collectionName = type === 'project' ? 'project_edit_requests' : 'event_edit_requests';
+      const editRequestRef = doc(db, collectionName, requestId);
+      
+      await updateDoc(editRequestRef, {
+        status: 'rejected',
+        reviewedAt: serverTimestamp(),
+        reviewedBy: currentUser?.email || 'admin',
+        reviewNotes: reason,
+      });
+
+      alert('Edit request rejected');
+      await fetchEditRequests();
+    } catch (error) {
+      console.error('Error rejecting submission edit request:', error);
       alert('Error rejecting edit request. Please try again.');
     }
   };
@@ -1422,6 +1526,162 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                   </div>
                 )}
               </section>
+
+              {/* Project Submission Edit Requests (for editing projects themselves) */}
+              <section>
+                <h4 className="text-xl font-luxury-heading text-black mb-4">Project Submission Edits</h4>
+                {projectSubmissionEditRequests.length === 0 ? (
+                  <div className="text-sm text-gray-600">No pending edit requests for project submissions.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {projectSubmissionEditRequests.map((request) => (
+                      <div key={request.id} className="luxury-card bg-cream-white p-6 border-l-4 border-vibrant-blue">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h5 className="text-lg font-luxury-semibold text-black">Edit Request for Project</h5>
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-black/70">Requested by: {request.requestedByName} ({request.requestedByEmail})</p>
+                            <p className="text-sm text-black/70">Submission ID: {request.submissionId}</p>
+                            <p className="text-sm text-black/70">Submitted: {formatTimestamp(request.requestedAt)}</p>
+                          </div>
+                        </div>
+
+                        {/* Edited Data Preview */}
+                        <div className="mt-4">
+                          <h6 className="font-luxury-semibold text-black mb-2 text-sm">Requested Changes:</h6>
+                          <div className="bg-blue-50 p-4 rounded-lg text-sm space-y-2 max-h-96 overflow-y-auto">
+                            {Object.entries(request.editedData || {}).map(([key, value]: [string, any]) => (
+                              <div key={key} className="border-b border-blue-200 pb-2">
+                                <span className="font-medium text-black capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
+                                <span className="text-black/80">
+                                  {Array.isArray(value) ? value.join(', ') :
+                                   typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) :
+                                   String(value || '—')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        {request.status === 'pending' && (
+                          <div className="mt-4 flex space-x-3">
+                            <button
+                              onClick={() => handleApproveSubmissionEditRequest(request.id, 'project')}
+                              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-luxury hover:bg-green-700 transition-colors"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Approve Changes
+                            </button>
+                            <button
+                              onClick={() => {
+                                const reason = prompt('Reason for rejection:');
+                                if (reason) handleRejectSubmissionEditRequest(request.id, 'project', reason);
+                              }}
+                              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-luxury hover:bg-red-700 transition-colors"
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Reject
+                            </button>
+                          </div>
+                        )}
+
+                        {request.status === 'rejected' && request.reviewNotes && (
+                          <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
+                            <p className="text-sm text-black"><strong>Rejection Reason:</strong> {request.reviewNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* Event Submission Edit Requests (for editing events themselves) */}
+              <section>
+                <h4 className="text-xl font-luxury-heading text-black mb-4">Event Submission Edits</h4>
+                {eventSubmissionEditRequests.length === 0 ? (
+                  <div className="text-sm text-gray-600">No pending edit requests for event submissions.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {eventSubmissionEditRequests.map((request) => (
+                      <div key={request.id} className="luxury-card bg-cream-white p-6 border-l-4 border-vibrant-blue">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h5 className="text-lg font-luxury-semibold text-black">Edit Request for Event</h5>
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-black/70">Requested by: {request.requestedByName} ({request.requestedByEmail})</p>
+                            <p className="text-sm text-black/70">Submission ID: {request.submissionId}</p>
+                            <p className="text-sm text-black/70">Submitted: {formatTimestamp(request.requestedAt)}</p>
+                          </div>
+                        </div>
+
+                        {/* Edited Data Preview */}
+                        <div className="mt-4">
+                          <h6 className="font-luxury-semibold text-black mb-2 text-sm">Requested Changes:</h6>
+                          <div className="bg-blue-50 p-4 rounded-lg text-sm space-y-2 max-h-96 overflow-y-auto">
+                            {Object.entries(request.editedData || {}).map(([key, value]: [string, any]) => (
+                              <div key={key} className="border-b border-blue-200 pb-2">
+                                <span className="font-medium text-black capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
+                                <span className="text-black/80">
+                                  {Array.isArray(value) ? value.join(', ') :
+                                   typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) :
+                                   String(value || '—')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        {request.status === 'pending' && (
+                          <div className="mt-4 flex space-x-3">
+                            <button
+                              onClick={() => handleApproveSubmissionEditRequest(request.id, 'event')}
+                              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-luxury hover:bg-green-700 transition-colors"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Approve Changes
+                            </button>
+                            <button
+                              onClick={() => {
+                                const reason = prompt('Reason for rejection:');
+                                if (reason) handleRejectSubmissionEditRequest(request.id, 'event', reason);
+                              }}
+                              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-luxury hover:bg-red-700 transition-colors"
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Reject
+                            </button>
+                          </div>
+                        )}
+
+                        {request.status === 'rejected' && request.reviewNotes && (
+                          <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
+                            <p className="text-sm text-black"><strong>Rejection Reason:</strong> {request.reviewNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
           {activeTab === 'submissions' && (
@@ -2076,7 +2336,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           {/* Analytics Tab */}
           {activeTab === 'analytics' && (
             <div className="space-y-4">
-              <AnalyticsOverview refreshTrigger={Date.now()} />
+              <AnalyticsOverview />
             </div>
           )}
 

@@ -181,7 +181,7 @@ const EnhancedAdminPanel: React.FC<EnhancedAdminPanelProps> = ({
 
       {/* Analytics Section */}
       {currentSection === 'analytics' && (
-        <AnalyticsOverview refreshTrigger={Date.now()} />
+        <AnalyticsOverview />
       )}
 
       {/* Moderation Section */}
