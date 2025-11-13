@@ -33,23 +33,33 @@ jobs:
           cd functions
           npm ci
 
+      - name: Authenticate with Firebase using Service Account
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
+
       - name: Set Firebase Config
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_SENDER_EMAIL: ${{ secrets.RESEND_SENDER_EMAIL }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
-          firebase functions:config:set resend.api_key="${RESEND_API_KEY}" --token ${{ secrets.FIREBASE_TOKEN }}
-          firebase functions:config:set resend.sender_email="${RESEND_SENDER_EMAIL}" --token ${{ secrets.FIREBASE_TOKEN }}
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > firebase-service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/firebase-service-account.json"
+          firebase functions:config:set resend.api_key="${RESEND_API_KEY}"
+          firebase functions:config:set resend.sender_email="${RESEND_SENDER_EMAIL}"
 
       - name: Deploy to Firebase
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
-          firebase deploy --only functions --token ${{ secrets.FIREBASE_TOKEN }} --force
+          firebase deploy --only functions --force
 
       - name: Verify Deployment
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
           echo "✅ Functions deployed successfully!"
-          firebase functions:list --token ${{ secrets.FIREBASE_TOKEN }}
+          firebase functions:list

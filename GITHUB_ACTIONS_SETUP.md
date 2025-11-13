@@ -14,21 +14,14 @@ Before the workflow can run, you need to set up GitHub Secrets with your Firebas
 
 ## Setup Steps
 
-### Step 1: Get Firebase Token
+### Step 1: Get Firebase Service Account Key (No CLI Required!)
 
-1. Install Firebase CLI (if not already installed):
-   ```bash
-   npm install -g firebase-tools
-   ```
-
-2. Generate a CI token:
-   ```bash
-   firebase login:ci
-   ```
-
-3. This will open a browser for authentication
-4. After successful login, you'll get a token like: `1//abc123def456...`
-5. **Copy this token** - you'll need it for GitHub Secrets
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select your project (e.g., `wasilah-new`)
+3. Click **Project Settings** (gear icon) → **Service Accounts** tab
+4. Click **Generate New Private Key** button
+5. Download the JSON file (keep it secure!)
+6. Open the JSON file and copy **ALL** the content
 
 ### Step 2: Configure GitHub Secrets
 
@@ -36,10 +29,10 @@ Before the workflow can run, you need to set up GitHub Secrets with your Firebas
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret** and add these three secrets:
 
-#### Secret 1: FIREBASE_TOKEN
-- **Name**: `FIREBASE_TOKEN`
-- **Value**: The token from `firebase login:ci` command
-- **Description**: Firebase CI token for deployment
+#### Secret 1: FIREBASE_SERVICE_ACCOUNT
+- **Name**: `FIREBASE_SERVICE_ACCOUNT`
+- **Value**: Paste the **ENTIRE** content of the JSON file you downloaded
+- **Description**: Firebase service account for deployment
 
 #### Secret 2: RESEND_API_KEY
 - **Name**: `RESEND_API_KEY`
@@ -83,9 +76,10 @@ The workflow performs these steps automatically:
 2. **Setup Node.js** - Installs Node.js 18
 3. **Install Firebase CLI** - Installs `firebase-tools`
 4. **Install Dependencies** - Runs `npm ci` in functions directory
-5. **Set Firebase Config** - Configures Resend API key and sender email
-6. **Deploy Functions** - Deploys all functions to Firebase
-7. **Verify Deployment** - Lists deployed functions
+5. **Authenticate with Firebase** - Uses service account JSON for authentication
+6. **Set Firebase Config** - Configures Resend API key and sender email
+7. **Deploy Functions** - Deploys all functions to Firebase
+8. **Verify Deployment** - Lists deployed functions
 
 ## Monitoring Deployments
 
@@ -101,14 +95,14 @@ The workflow performs these steps automatically:
 
 ### Common Issues
 
-**Issue**: "Firebase Token Invalid"
-- **Solution**: Regenerate token with `firebase login:ci` and update `FIREBASE_TOKEN` secret
+**Issue**: "Service Account Authentication Failed"
+- **Solution**: Verify the JSON content in `FIREBASE_SERVICE_ACCOUNT` secret is complete and valid
 
 **Issue**: "Permission denied"
-- **Solution**: Make sure your Firebase project allows the service account to deploy
+- **Solution**: Make sure the service account has "Firebase Admin SDK Administrator Service Agent" role in Firebase Console → Project Settings → Service Accounts
 
 **Issue**: "Function deployment failed"
-- **Solution**: Check function logs and syntax errors
+- **Solution**: Check function logs and syntax errors in the Actions logs
 
 ## Benefits
 
