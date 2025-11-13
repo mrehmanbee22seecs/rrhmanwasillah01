@@ -283,3 +283,34 @@ export interface EventRegistrationEditRequest {
   reviewedBy?: string;
   reviewNotes?: string;
 }
+
+// Edit Request Types for Submissions (Projects and Events themselves)
+export interface ProjectSubmissionEditRequest {
+  id: string;
+  submissionId: string;
+  submissionType: 'project';
+  editedData: Partial<ProjectSubmission>;
+  requestedBy: string;
+  requestedByName: string;
+  requestedByEmail: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: any;
+  reviewedAt?: any;
+  reviewedBy?: string;
+  reviewNotes?: string;
+}
+
+export interface EventSubmissionEditRequest {
+  id: string;
+  submissionId: string;
+  submissionType: 'event';
+  editedData: Partial<EventSubmission>;
+  requestedBy: string;
+  requestedByName: string;
+  requestedByEmail: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: any;
+  reviewedAt?: any;
+  reviewedBy?: string;
+  reviewNotes?: string;
+}
