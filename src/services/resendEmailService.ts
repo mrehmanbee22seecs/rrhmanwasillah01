@@ -365,8 +365,6 @@ export async function sendEditRequestEmail(params: {
   submissionTitle: string;
   type: 'project' | 'event';
 }): Promise<boolean> {
-  const typeLabel = params.type === 'project' ? 'Project' : 'Event';
-
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
       <div style="background: ${brand.gradient}; padding: 30px 20px; text-align: center;">

@@ -15,9 +15,9 @@ interface Reminder {
   email: string;
   projectName: string;
   message: string;
-  scheduledAt: any;
+  scheduledAt: Timestamp | Date | string | { toDate: () => Date };
   sent: boolean;
-  sentAt?: any;
+  sentAt?: Timestamp | Date;
   userId: string;
 }
 
@@ -83,9 +83,9 @@ export async function checkDueReminders(): Promise<{ success: boolean; sentCount
 
     console.log(`Checked reminders: ${sentCount} sent`);
     return { success: true, sentCount };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error checking reminders:', error);
-    return { success: false, sentCount: 0, error: error.message };
+    return { success: false, sentCount: 0, error: (error as Error).message };
   }
 }
 
@@ -127,8 +127,8 @@ export async function sendReminderNow(reminderId: string): Promise<{ success: bo
     } else {
       return { success: false, message: 'Failed to send email' };
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in sendReminderNow:', error);
-    return { success: false, message: error.message || 'Failed to send reminder' };
+    return { success: false, message: (error as Error).message || 'Failed to send reminder' };
   }
 }
