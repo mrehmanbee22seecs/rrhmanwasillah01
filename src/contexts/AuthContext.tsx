@@ -243,9 +243,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
       role: userRole
     });
     
-    // Welcome email will be sent automatically via Cloud Function
-    // when the user document is created in Firestore
-    // See functions/emailFunctions.js for implementation
+    // Send welcome email (Spark plan compatible - client-side)
+    try {
+      await sendWelcomeEmail({
+        email: email,
+        name: displayName,
+        role: userRole
+      });
+      console.log('Welcome email sent successfully');
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+      // Don't fail the signup if email fails
+    }
   };
 
   const login = async (email: string, password: string) => {

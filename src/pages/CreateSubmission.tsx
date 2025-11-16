@@ -7,6 +7,7 @@ import { FirebaseError } from 'firebase/app';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectSubmission, EventSubmission, SubmissionType, ChecklistItem, Reminder, HeadInfo } from '../types/submissions';
 import { sendEmail, formatSubmissionReceivedEmail } from '../utils/emailService';
+import { sendEditRequestEmail } from '../services/resendEmailService';
 import InteractiveMap from '../components/InteractiveMap';
 import ChecklistBuilder from '../components/ChecklistBuilder';
 import ReminderManager from '../components/ReminderManager';
@@ -569,6 +570,23 @@ const CreateSubmission = () => {
           status: 'pending',
           requestedAt: serverTimestamp()
         });
+        
+        // Send edit request confirmation email (Spark plan compatible - client-side)
+        try {
+          const originalSubmission = await getDoc(doc(db, submissionType === 'project' ? 'project_submissions' : 'event_submissions', editId));
+          const submissionTitle = originalSubmission.data()?.title || 'Your Submission';
+          
+          await sendEditRequestEmail({
+            email: userData.email || '',
+            name: userData.displayName || 'User',
+            submissionTitle: submissionTitle,
+            type: submissionType
+          });
+          console.log('Edit request confirmation email sent');
+        } catch (emailError) {
+          console.error('Failed to send edit request email:', emailError);
+          // Don't fail the request if email fails
+        }
         
         alert(`Edit request submitted! Your changes will be live once an admin approves them.`);
         navigate('/dashboard');

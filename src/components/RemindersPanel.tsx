@@ -3,7 +3,7 @@ import { Bell, Plus, Trash2, Clock, Calendar, Mail, Send, CheckCircle, AlertCirc
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { checkDueReminders as checkDueRemindersService, sendReminderNow as sendReminderNowService } from '../services/clientSideReminderService';
 
 interface Reminder {
   id: string;
@@ -84,13 +84,23 @@ const RemindersPanel = () => {
     
     try {
       setCheckingReminders(true);
-      const functions = getFunctions();
-      const checkReminders = httpsCallable(functions, 'checkDueReminders');
-      await checkReminders({});
+      const result = await checkDueRemindersService();
+      
+      if (result.success) {
+        if (result.sentCount > 0) {
+          setSuccess(`${result.sentCount} reminder(s) sent successfully!`);
+        } else {
+          setSuccess('No due reminders at this time.');
+        }
+      } else {
+        setError(result.error || 'Failed to check reminders');
+      }
+      
       // Reload reminders to show updated status
       await loadReminders();
     } catch (err) {
       console.error('Error checking reminders:', err);
+      setError('Failed to check reminders');
     } finally {
       setCheckingReminders(false);
     }
@@ -209,10 +219,14 @@ const RemindersPanel = () => {
     if (!confirm('Send this reminder email now?')) return;
 
     try {
-      const functions = getFunctions();
-      const sendNow = httpsCallable(functions, 'sendReminderNow');
-      await sendNow({ reminderId });
-      setSuccess('Reminder sent successfully!');
+      const result = await sendReminderNowService(reminderId);
+      
+      if (result.success) {
+        setSuccess(result.message);
+      } else {
+        setError(result.message);
+      }
+      
       await loadReminders();
     } catch (err) {
       console.error('Error sending reminder:', err);
