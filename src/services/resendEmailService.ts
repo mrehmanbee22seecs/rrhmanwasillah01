@@ -12,11 +12,11 @@
 import { Resend } from 'resend';
 
 // Initialize Resend client
-const resendApiKey = import.meta.env.VITE_RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
+const resendApiKey = import.meta.env.VITE_RESEND_API_KEY || 're_gjBe41Rq_C9nKeCytkx1xnmtJBHXn88he';
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 // Sender email configuration
-const SENDER_EMAIL = import.meta.env.VITE_RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
+const SENDER_EMAIL = import.meta.env.VITE_RESEND_SENDER_EMAIL || 'noreply@wasillah.live';
 const SENDER_NAME = 'Wasillah Team';
 
 // Brand styling
@@ -357,6 +357,117 @@ export async function sendVolunteerConfirmation(params: {
 }
 
 /**
+ * 6. Edit Request Confirmation Email
+ */
+export async function sendEditRequestEmail(params: {
+  email: string;
+  name: string;
+  submissionTitle: string;
+  type: 'project' | 'event';
+}): Promise<boolean> {
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+      <div style="background: ${brand.gradient}; padding: 30px 20px; text-align: center;">
+        <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">Edit Request Submitted</h1>
+      </div>
+      
+      <div style="background: #ffffff; padding: 30px 24px;">
+        <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+          Hi <strong>${params.name}</strong>,
+        </p>
+        
+        <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+          Your edit request for the ${params.type} "<strong>${params.submissionTitle}</strong>" has been submitted and is under review by our admin team.
+        </p>
+        
+        <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+          You will receive an email notification once your changes are reviewed and processed.
+        </p>
+        
+        <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+          — The Wasillah Team
+        </p>
+      </div>
+      
+      <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+        <p style="margin: 0;">Thank you for keeping your ${params.type} information up to date!</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail(params.email, `Edit Request Received: ${params.submissionTitle}`, html);
+}
+
+/**
+ * 7. Edit Request Status Update Email (Approved/Rejected)
+ */
+export async function sendEditRequestStatusEmail(params: {
+  email: string;
+  name: string;
+  submissionTitle: string;
+  type: 'project' | 'event';
+  status: 'approved' | 'rejected';
+  rejectionReason?: string;
+}): Promise<boolean> {
+  const typeLabel = params.type === 'project' ? 'project' : 'event';
+  const isApproved = params.status === 'approved';
+
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #f8fafc;">
+      <div style="background: ${isApproved ? 'linear-gradient(135deg, #10B981, #34D399)' : 'linear-gradient(135deg, #EF4444, #F87171)'}; padding: 30px 20px; text-align: center;">
+        <h1 style="color: ${brand.textLight}; margin: 0; font-size: 28px;">${isApproved ? '✅ Edit Request Approved!' : 'Edit Request Update'}</h1>
+      </div>
+      
+      <div style="background: #ffffff; padding: 30px 24px;">
+        <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+          Hi <strong>${params.name}</strong>,
+        </p>
+        
+        ${isApproved ? `
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Great news! Your edit request for the ${typeLabel} "<strong>${params.submissionTitle}</strong>" has been approved.
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Your changes are now live and visible on the platform. Thank you for keeping your ${typeLabel} information accurate and up to date!
+          </p>
+        ` : `
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            We've reviewed your edit request for the ${typeLabel} "<strong>${params.submissionTitle}</strong>".
+          </p>
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            Unfortunately, we cannot approve the requested changes at this time.
+          </p>
+          
+          ${params.rejectionReason ? `
+            <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 16px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; color: #991B1B; font-size: 14px; line-height: 1.6;">
+                <strong>Reason:</strong> ${params.rejectionReason}
+              </p>
+            </div>
+          ` : ''}
+          
+          <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6;">
+            If you have questions or would like to discuss this decision, please contact our support team.
+          </p>
+        `}
+        
+        <p style="color: ${brand.textDark}; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+          — The Wasillah Team
+        </p>
+      </div>
+      
+      <div style="background: ${brand.headerBg}; color: ${brand.textLight}; padding: 20px; text-align: center; font-size: 14px;">
+        <p style="margin: 0;">${isApproved ? 'Keep up the great work!' : 'We appreciate your understanding.'}</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail(params.email, `Edit Request ${isApproved ? 'Approved' : 'Update'}: ${params.submissionTitle}`, html);
+}
+
+/**
  * Check if Resend is properly configured
  */
 export function isResendConfigured(): boolean {
@@ -369,5 +480,7 @@ export default {
   sendApprovalEmail,
   sendReminderEmail,
   sendVolunteerConfirmation,
+  sendEditRequestEmail,
+  sendEditRequestStatusEmail,
   isResendConfigured
 };

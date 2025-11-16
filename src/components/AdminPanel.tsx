@@ -7,6 +7,7 @@ import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectSubmission, EventSubmission, SubmissionStatus, ProjectApplicationEntry, EventRegistrationEntry, VolunteerApplicationEntry, NewsletterSubscriberEntry, ProjectApplicationEditRequest, EventRegistrationEditRequest, ProjectSubmissionEditRequest, EventSubmissionEditRequest } from '../types/submissions';
 import { sendEmail, formatSubmissionStatusUpdateEmail } from '../utils/emailService';
+import { sendEditRequestStatusEmail } from '../services/resendEmailService';
 import { migrateApprovedSubmissions } from '../utils/migrateVisibility';
 import ChatsPanel from './Admin/ChatsPanel';
 import { seedKnowledgeBase } from '../utils/kbSeed';
@@ -694,9 +695,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       // Create reference to the original submission
       const submissionRef = doc(db, submissionCollectionName, submissionId);
       
-      // Get the current submission to preserve its audit trail
+      // Get the current submission to preserve its audit trail and get title
       const submissionSnap = await getDoc(submissionRef);
       const currentAuditTrail = submissionSnap.exists() ? (submissionSnap.data().auditTrail || []) : [];
+      const submissionTitle = submissionSnap.exists() ? (submissionSnap.data().title || 'Your Submission') : 'Your Submission';
       
       // Update the original submission with edited data
       await updateDoc(submissionRef, {
@@ -720,6 +722,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
         reviewedBy: currentUser?.email || 'admin',
       });
 
+      // Send approval email (Spark plan compatible - client-side)
+      try {
+        await sendEditRequestStatusEmail({
+          email: editRequest.requestedByEmail || '',
+          name: editRequest.requestedByName || 'User',
+          submissionTitle: submissionTitle,
+          type: type,
+          status: 'approved'
+        });
+        console.log('Edit request approval email sent');
+      } catch (emailError) {
+        console.error('Failed to send edit request approval email:', emailError);
+        // Don't fail the approval if email fails
+      }
+
       alert('Edit request approved and changes applied!');
       await fetchEditRequests();
       await fetchSubmissions();
@@ -737,14 +754,50 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
 
     try {
       const collectionName = type === 'project' ? 'project_edit_requests' : 'event_edit_requests';
+      const submissionCollectionName = type === 'project' ? 'project_submissions' : 'event_submissions';
       const editRequestRef = doc(db, collectionName, requestId);
       
-      await updateDoc(editRequestRef, {
-        status: 'rejected',
-        reviewedAt: serverTimestamp(),
-        reviewedBy: currentUser?.email || 'admin',
-        reviewNotes: reason,
-      });
+      // Get the edit request for email
+      const editRequestSnap = await getDoc(editRequestRef);
+      if (editRequestSnap.exists()) {
+        const editRequest = editRequestSnap.data();
+        
+        // Get submission title
+        const submissionRef = doc(db, submissionCollectionName, editRequest.submissionId);
+        const submissionSnap = await getDoc(submissionRef);
+        const submissionTitle = submissionSnap.exists() ? (submissionSnap.data().title || 'Your Submission') : 'Your Submission';
+        
+        // Update edit request status
+        await updateDoc(editRequestRef, {
+          status: 'rejected',
+          reviewedAt: serverTimestamp(),
+          reviewedBy: currentUser?.email || 'admin',
+          reviewNotes: reason,
+        });
+
+        // Send rejection email (Spark plan compatible - client-side)
+        try {
+          await sendEditRequestStatusEmail({
+            email: editRequest.requestedByEmail || '',
+            name: editRequest.requestedByName || 'User',
+            submissionTitle: submissionTitle,
+            type: type,
+            status: 'rejected',
+            rejectionReason: reason
+          });
+          console.log('Edit request rejection email sent');
+        } catch (emailError) {
+          console.error('Failed to send edit request rejection email:', emailError);
+          // Don't fail the rejection if email fails
+        }
+      } else {
+        await updateDoc(editRequestRef, {
+          status: 'rejected',
+          reviewedAt: serverTimestamp(),
+          reviewedBy: currentUser?.email || 'admin',
+          reviewNotes: reason,
+        });
+      }
 
       alert('Edit request rejected');
       await fetchEditRequests();
