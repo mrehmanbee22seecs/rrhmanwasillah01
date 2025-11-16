@@ -21,7 +21,7 @@ console.log('\n📧 Attempting to send test email...');
 
 try {
   const { data, error } = await resend.emails.send({
-    from: 'onboarding@resend.dev',
+    from: 'Wasillah Team <noreply@wasillah.live>',
     to: ['delivered@resend.dev'],
     subject: 'Test Email from Wasillah Platform',
     html: '<h1>Test Email</h1><p>This is a test email from the Wasillah platform.</p>',

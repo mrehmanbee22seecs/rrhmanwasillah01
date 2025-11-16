@@ -16,7 +16,7 @@ const resendApiKey = import.meta.env.VITE_RESEND_API_KEY || 're_TWHg3zaz_7KQnXVU
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 // Sender email configuration
-const SENDER_EMAIL = import.meta.env.VITE_RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
+const SENDER_EMAIL = import.meta.env.VITE_RESEND_SENDER_EMAIL || 'noreply@wasillah.live';
 const SENDER_NAME = 'Wasillah Team';
 
 // Brand styling
