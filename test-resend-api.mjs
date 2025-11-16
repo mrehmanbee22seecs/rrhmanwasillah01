@@ -5,7 +5,7 @@
 
 import { Resend } from 'resend';
 
-const RESEND_API_KEY = process.env.VITE_RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
+const RESEND_API_KEY = process.env.VITE_RESEND_API_KEY || 're_gjBe41Rq_C9nKeCytkx1xnmtJBHXn88he';
 
 console.log('\n🔍 Testing Resend API Connection');
 console.log('━'.repeat(60));

@@ -12,7 +12,7 @@
 import { Resend } from 'resend';
 
 // Initialize Resend client
-const resendApiKey = import.meta.env.VITE_RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
+const resendApiKey = import.meta.env.VITE_RESEND_API_KEY || 're_gjBe41Rq_C9nKeCytkx1xnmtJBHXn88he';
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 // Sender email configuration

@@ -11,7 +11,7 @@
 import { Resend } from 'resend';
 
 // Configuration
-const RESEND_API_KEY = process.env.VITE_RESEND_API_KEY || 're_TWHg3zaz_7KQnXVULcpgG57GtJxohNxve';
+const RESEND_API_KEY = process.env.VITE_RESEND_API_KEY || 're_gjBe41Rq_C9nKeCytkx1xnmtJBHXn88he';
 const SENDER_EMAIL = process.env.VITE_RESEND_SENDER_EMAIL || 'noreply@wasillah.live';
 const TEST_RECIPIENT = process.env.TEST_EMAIL || 'test@example.com'; // Change this to your email for testing
 
