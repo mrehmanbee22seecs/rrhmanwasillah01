@@ -142,6 +142,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
           if (writeError?.code === 'resource-exhausted') {
             console.error('⚠️ Firebase quota exhausted - user document creation failed');
             console.error('⚠️ Continuing with in-memory user data');
+            console.error('💡 Admin: Check Firebase Console > Firestore > Usage to monitor quota');
             // Return the user data we tried to write, so auth can continue
             // Note: This data won't persist, but allows login to complete
             return userData;
@@ -218,6 +219,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
             if (updateError?.code === 'resource-exhausted') {
               console.error('⚠️ Firebase quota exhausted - skipping user document update');
               console.error('⚠️ Continuing with existing user data from cache');
+              console.error('💡 Admin: Check Firebase Console > Firestore > Usage to monitor quota');
               // Return current data from cache, allowing login to proceed
               return currentData;
             }
@@ -247,7 +249,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
       // Check if it's a quota error at the top level
       if (error?.code === 'resource-exhausted') {
         console.error('❌ Firebase quota exhausted - cannot access user document');
-        console.error('⚠️ User will need to try again later when quota resets');
+        console.error('⚠️ Creating minimal user profile to allow login');
+        console.error('💡 Admin: Check Firebase Console > Firestore > Usage to monitor quota');
+        console.error('💡 Consider upgrading Firebase plan if quota issues persist');
         // Create a minimal user object from Firebase Auth data to allow continued use
         const { displayName, email, photoURL } = user;
         const minimalUserData: UserData = {
