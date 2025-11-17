@@ -134,8 +134,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
         };
 
         console.log('Writing new user document to Firestore...');
-        await setDoc(userRef, userData);
-        console.log('✅ User document created successfully');
+        try {
+          await setDoc(userRef, userData);
+          console.log('✅ User document created successfully');
+        } catch (writeError: any) {
+          // Handle quota exhausted error gracefully for new users
+          if (writeError?.code === 'resource-exhausted') {
+            console.error('⚠️ Firebase quota exhausted - user document creation failed');
+            console.error('⚠️ Continuing with in-memory user data');
+            // Return the user data we tried to write, so auth can continue
+            // Note: This data won't persist, but allows login to complete
+            return userData;
+          }
+          // Re-throw other errors
+          throw writeError;
+        }
         
         // Send welcome notification
         try {
@@ -153,6 +166,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
       } else {
         // Existing user - update last login and merge any additional data (e.g., OAuth preferences)
         console.log('Existing user detected, checking if lastLogin update is needed...');
+        
+        // Get current data first (we'll return this if updates fail)
+        const currentData = userSnap.data() as UserData;
         
         // Throttle lastLogin updates to prevent write queue exhaustion
         // Only update if more than 5 minutes have passed since last update
@@ -176,8 +192,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
           console.log('Merging additional data for existing user:', additionalData);
           // Merge preferences if they exist in additionalData
           if (additionalData.preferences) {
-            // Get current preferences first
-            const currentData = userSnap.data() as UserData;
             const currentPreferences = currentData.preferences || {};
             
             // Merge preferences (OAuth preferences take precedence)
@@ -196,19 +210,69 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
         
         // Only update if there's something to update
         if (Object.keys(updateData).length > 0) {
-          await updateDoc(userRef, updateData);
-          console.log('✅ User document updated with:', Object.keys(updateData));
+          try {
+            await updateDoc(userRef, updateData);
+            console.log('✅ User document updated with:', Object.keys(updateData));
+          } catch (updateError: any) {
+            // Handle quota exhausted error gracefully
+            if (updateError?.code === 'resource-exhausted') {
+              console.error('⚠️ Firebase quota exhausted - skipping user document update');
+              console.error('⚠️ Continuing with existing user data from cache');
+              // Return current data from cache, allowing login to proceed
+              return currentData;
+            }
+            // Re-throw other errors
+            throw updateError;
+          }
         } else {
           console.log('No updates needed for user document (throttled)');
         }
         
         // Fetch the updated document
-        const updatedUserSnap = await getDoc(userRef);
-        const finalData = updatedUserSnap.data() as UserData;
-        console.log('✅ User document fetched:', finalData.email);
-        return finalData;
+        try {
+          const updatedUserSnap = await getDoc(userRef);
+          const finalData = updatedUserSnap.data() as UserData;
+          console.log('✅ User document fetched:', finalData.email);
+          return finalData;
+        } catch (fetchError: any) {
+          // If even read fails due to quota, return cached data
+          if (fetchError?.code === 'resource-exhausted') {
+            console.error('⚠️ Firebase quota exhausted - using cached user data');
+            return currentData;
+          }
+          throw fetchError;
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Check if it's a quota error at the top level
+      if (error?.code === 'resource-exhausted') {
+        console.error('❌ Firebase quota exhausted - cannot access user document');
+        console.error('⚠️ User will need to try again later when quota resets');
+        // Create a minimal user object from Firebase Auth data to allow continued use
+        const { displayName, email, photoURL } = user;
+        const minimalUserData: UserData = {
+          uid: user.uid,
+          displayName,
+          email,
+          photoURL,
+          phoneNumber: null,
+          role: 'volunteer',
+          isAdmin: email === ADMIN_EMAIL,
+          isGuest: false,
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          activityLog: [],
+          onboardingCompleted: true, // Assume completed to avoid onboarding flow
+          profileCompletionPercentage: 0,
+          preferences: {
+            theme: 'wasilah-classic',
+            language: 'en',
+            onboardingCompleted: true
+          }
+        };
+        return minimalUserData;
+      }
+      
       console.error('❌ Error creating/updating user document:', error);
       console.error('Error details:', {
         message: (error as Error).message,
