@@ -194,27 +194,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
           // Merge preferences if they exist in additionalData
           if (additionalData.preferences) {
             const currentPreferences = currentData.preferences || {};
-            
-            // Merge preferences (OAuth preferences take precedence)
-            updateData['preferences'] = {
+            const newPreferences = {
               ...currentPreferences,
               ...additionalData.preferences
             };
+            
+            // Only add to updateData if preferences actually changed
+            const preferencesChanged = JSON.stringify(currentPreferences) !== JSON.stringify(newPreferences);
+            if (preferencesChanged) {
+              updateData['preferences'] = newPreferences;
+              console.log('Preferences changed, will update');
+            } else {
+              console.log('Preferences unchanged, skipping preference update');
+            }
           }
-          // Merge other fields if needed
+          // Merge other fields if needed, but only if they're different
           Object.keys(additionalData).forEach(key => {
             if (key !== 'preferences') {
-              updateData[key] = additionalData[key];
+              // Only add if value is different from current
+              if (JSON.stringify(currentData[key as keyof UserData]) !== JSON.stringify(additionalData[key])) {
+                updateData[key] = additionalData[key];
+              }
             }
           });
         }
         
         // Only update if there's something to update
         if (Object.keys(updateData).length > 0) {
+          console.log('Preparing to update document with:', Object.keys(updateData));
           try {
             await updateDoc(userRef, updateData);
-            console.log('✅ User document updated with:', Object.keys(updateData));
+            console.log('✅ User document updated successfully');
           } catch (updateError: any) {
+            console.error('❌ Update error caught:', updateError?.code, updateError?.message);
             // Handle quota exhausted error gracefully
             if (updateError?.code === 'resource-exhausted') {
               console.error('⚠️ Firebase quota exhausted - skipping user document update');
@@ -227,7 +239,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }: AuthProv
             throw updateError;
           }
         } else {
-          console.log('No updates needed for user document (throttled)');
+          console.log('No updates needed for user document (all data is current)');
         }
         
         // Fetch the updated document
